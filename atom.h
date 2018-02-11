@@ -5,11 +5,11 @@
 #include <vector>
 
 class atom {
-	private:
+	private:	
 		const unsigned int number;
 		const std::string name;
 		std::vector<double> cart_coords = {0,0,0};
-		const atom *bond_length_atom;
+		const atom *bond_length_atom = nullptr;
 		std::vector<const atom*> angle_atoms;
 		std::vector<const atom*> dihedral_angle_atoms;
 	public:
