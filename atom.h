@@ -8,19 +8,22 @@ class atom {
 	private:	
 		const unsigned int number;
 		const std::string name;
-		std::vector<double> cart_coords = {0,0,0};
-		const atom *bond_length_atom = nullptr;
-		std::vector<const atom*> angle_atoms;
-		std::vector<const atom*> dihedral_angle_atoms;
+		std::vector<double> cart_coord = {0,0,0};
+		int bond_length_atom;
+		int angle_atom;
+		int dihedral_angle_atom;
 	public:
 		atom(unsigned int num, std::string name);	
 		std::string get_name() const; 
 		int get_number() const;
-		std::vector<double> get_cart_coords() const;
-		void set_cart_coords(double x, double y, double z); 
-		void set_bond_length_atom(atom const& connected_to);
-		void set_angle_atoms(atom const& atom_1, atom const& atom_2);
-		void set_dihedral_angle_atoms(atom const& atom_1, atom const& atom_2, atom const& atom_3);
+		std::vector<double> get_cart_coord() const;
+		void set_cart_coord(double x, double y, double z); 
+		void set_bond_length_atom(int connected_to);
+		void set_angle_atom(int atom_1);
+		void set_dihedral_angle_atom(int atom_1);
+		int get_bond_length_atom();
+		int get_angle_atom();
+		int get_dihedral_angle_atom();	
 };
 
 #endif
