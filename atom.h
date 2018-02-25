@@ -15,7 +15,7 @@ class atom {
 	public:
 		atom(unsigned int num, std::string name);	
 		std::string get_name() const; 
-		int get_number() const;
+		int get_number();
 		std::vector<double> get_cart_coord() const;
 		void set_cart_coord(double x, double y, double z); 
 		void set_bond_length_atom(int connected_to);

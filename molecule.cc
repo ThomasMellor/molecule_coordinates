@@ -3,8 +3,11 @@
 #include <sstream>
 #include <iostream>
 #include <math.h>
+#include <functional>
 
-int molecule::get_num_atoms() {
+typedef int (atom::*coord_func)();
+
+int molecule::get_num_atoms() const {
 	return num_atoms;
 };
 
@@ -183,16 +186,38 @@ void molecule::set_atom_coord(int atom_num, double x, double y, double z) {
 	(this -> get_atom_from_num(atom_num)).set_cart_coord(x, y, z);
 };	
 
+std::vector<std::vector<double>> molecule::atom_and_connected_coord(int atom_num) {
+	std::vector<coord_func> coordinate_functions = 
+		{&atom::get_number, &atom::get_bond_length_atom, &atom::get_angle_atom, &atom::get_dihedral_angle_atom}; 
+	std::vector<std::vector<double>> coordinates_of_atoms;
+	atom& first_atom = this -> get_atom_from_num(atom_num);
+	
+	int num_connected = atom_num;
+	if(num_connected > 4) {
+		num_connected = 4;
+	};	
+	for(int i = 0; i < num_connected; i++) {
+		coord_func current_coord_func = coordinate_functions[i];
+		atom &current_atom = this -> get_atom_from_num( (first_atom.*current_coord_func)() );
+		std::vector<double> vec = current_atom.get_cart_coord();
+		coordinates_of_atoms.push_back(vec);
+	};
+	return coordinates_of_atoms;
+
+};
+
 double molecule::bond_length(int atom_num) {
 	if(atom_num == 1) {
 		std::cerr << "No bond length defined for atom one." << std::endl;
 		exit(1);
 	};
-	atom& first_atom = this -> get_atom_from_num(atom_num);
+	/*atom& first_atom = this -> get_atom_from_num(atom_num);
 	atom& second_atom = this -> get_atom_from_num(first_atom.get_bond_length_atom());
 	std::vector<double> vec_1 = first_atom.get_cart_coord();
 	std::vector<double> vec_2 = second_atom.get_cart_coord();
-	return distance(vec_1, vec_2); 
+	*/
+	std::vector<std::vector<double>> coordinates_of_atoms = atom_and_connected_coord(atom_num);
+	return distance(coordinates_of_atoms[0], coordinates_of_atoms[1]); 
 };
 
 double molecule::angle(int atom_num) {
@@ -200,13 +225,15 @@ double molecule::angle(int atom_num) {
 		std::cerr << "No angle defined for this atom." << std::endl;
 		exit(1);
 	};
-	atom& first_atom = (*this).get_atom_from_num(atom_num);	
+	/*atom& first_atom = (*this).get_atom_from_num(atom_num);	
 	std::vector<double> vec_1 = first_atom.get_cart_coord();
 	atom& second_atom = this -> get_atom_from_num(first_atom.get_bond_length_atom());
 	std::vector<double> vec_2 = second_atom.get_cart_coord();	
 	atom& third_atom = this -> get_atom_from_num(first_atom.get_angle_atom());
 	std::vector<double> vec_3 = third_atom.get_cart_coord();
-	return  calculate_angle(vec_1, vec_2, vec_3);	
+	*/
+	std::vector<std::vector<double>> coordinates_of_atoms = atom_and_connected_coord(atom_num);
+	return calculate_angle(coordinates_of_atoms[0], coordinates_of_atoms[1], coordinates_of_atoms[2]); 
 };
 
 double molecule::dihedral_angle(int atom_num) {
@@ -214,7 +241,7 @@ double molecule::dihedral_angle(int atom_num) {
 		std::cerr << "No dihedral angle defined for this atom." << std::endl;
 		exit(1);
 	};
-	atom& first_atom = (*this).get_atom_from_num(atom_num);
+	/*atom& first_atom = (*this).get_atom_from_num(atom_num);
 	std::vector<double> vec_1 = first_atom.get_cart_coord();
 	atom& second_atom = this -> get_atom_from_num(first_atom.get_bond_length_atom());
 	std::vector<double> vec_2 = second_atom.get_cart_coord();	
@@ -222,8 +249,10 @@ double molecule::dihedral_angle(int atom_num) {
 	std::vector<double> vec_3 = third_atom.get_cart_coord();
 	atom& fourth_atom = this -> get_atom_from_num(first_atom.get_dihedral_angle_atom());
 	std::vector<double> vec_4 = fourth_atom.get_cart_coord();
-
-	return calculate_dihedral_angle(vec_1, vec_2, vec_3, vec_4);
+	*/
+	std::vector<std::vector<double>> coordinates_of_atoms = atom_and_connected_coord(atom_num);
+	return calculate_dihedral_angle(coordinates_of_atoms[0], coordinates_of_atoms[1], coordinates_of_atoms[2],
+			coordinates_of_atoms[3]); 
 };
 
 double molecule::dot_product(std::vector<double> coord_1, std::vector<double> coord_2) {
@@ -257,10 +286,7 @@ std::vector<double> molecule::displacement_vector(std::vector<double> coord_1, s
 double molecule::calculate_angle(std::vector<double> coord_1, std::vector<double> coord_2, std::vector<double> coord_3) {
 	std::vector<double> vec_1 = displacement_vector(coord_1, coord_2);
 	std::vector<double> vec_2 = displacement_vector(coord_3, coord_2);
-	double numerator = dot_product(vec_1, vec_2);
-	double denominator = distance(coord_1, coord_2)*distance(coord_2, coord_3);
-	double angle = acos(numerator/denominator);
-	return angle;
+	return calculate_vec_angle(vec_1, vec_2);	
 };
 
 double molecule::calculate_vec_angle(std::vector<double> vec_1, std::vector<double> vec_2) {

@@ -25,9 +25,11 @@ class molecule {
 		static bool check_coord_size(std::vector<double> coord);
 		static std::vector<double> cross_product(std::vector<double> coord_1, std::vector<double> coord_2);
 		static std::vector<double> vec_normalised(std::vector<double> vec);
+		std::vector<std::vector<double>> atom_and_connected_coord(int atom_num);
+		double derivative(double coordinate(int), int atom_num, int second_atom_num);
 	public:
 		void print_coordinates();
-		int get_num_atoms();
+		int get_num_atoms() const;
 		molecule(std::string z_matrix_file, std::string molecule_name);	
 		double bond_length(int atom_num);
 		double angle(int atom_num);

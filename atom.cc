@@ -6,7 +6,7 @@ std::string atom::get_name() const {
 	return name;
 };	
 
-int atom::get_number() const {
+int atom::get_number() {
 	return number;
 };
 
