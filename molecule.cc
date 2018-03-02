@@ -4,8 +4,9 @@
 #include <iostream>
 #include <math.h>
 #include <functional>
+#include <map>
 
-typedef int (atom::*coord_func)();
+typedef int (atom::*coord_func)() const;
 
 int molecule::get_num_atoms() const {
 	return num_atoms;
@@ -56,8 +57,7 @@ molecule::molecule(std::string z_matrix_file, std::string molecule_name) : name(
 		exit(1);
 	};
 	number_of_atoms++;
-	atom second_atom(number_of_atoms, atom_name);
-	second_atom.set_bond_length_atom( num_bond_atom);
+	atom second_atom(number_of_atoms, atom_name, num_bond_atom);
 	atoms.push_back(second_atom);
 
 	if(!getline(stream, line)) {
@@ -86,9 +86,7 @@ molecule::molecule(std::string z_matrix_file, std::string molecule_name) : name(
 		exit(1);
 	};
 	number_of_atoms++;
-	atom third_atom(number_of_atoms, atom_name);
-	third_atom.set_bond_length_atom(num_bond_atom);
-	third_atom.set_angle_atom(num_angle_atom);
+	atom third_atom(number_of_atoms, atom_name, num_bond_atom, num_angle_atom);
 	atoms.push_back(third_atom);
 
 	while(getline(stream, line)) {
@@ -119,10 +117,7 @@ molecule::molecule(std::string z_matrix_file, std::string molecule_name) : name(
 			exit(1);
 		};
 		number_of_atoms++;
-		atom remaining_atom(number_of_atoms, atom_name);
-		remaining_atom.set_bond_length_atom(num_bond_atom);
-		remaining_atom.set_angle_atom(num_angle_atom);
-		remaining_atom.set_dihedral_angle_atom(num_dihedral_atom);
+		atom remaining_atom(number_of_atoms, atom_name, num_bond_atom, num_angle_atom, num_dihedral_atom);
 		atoms.push_back(remaining_atom);		
 	};
 	num_atoms = number_of_atoms;
@@ -186,24 +181,14 @@ void molecule::set_atom_coord(int atom_num, double x, double y, double z) {
 	(this -> get_atom_from_num(atom_num)).set_cart_coord(x, y, z);
 };	
 
-std::vector<std::vector<double>> molecule::atom_and_connected_coord(int atom_num) {
-	std::vector<coord_func> coordinate_functions = 
-		{&atom::get_number, &atom::get_bond_length_atom, &atom::get_angle_atom, &atom::get_dihedral_angle_atom}; 
+std::vector<std::vector<double>> molecule::atom_and_connected_coord(std::vector<int> connected_atoms) {
 	std::vector<std::vector<double>> coordinates_of_atoms;
-	atom& first_atom = this -> get_atom_from_num(atom_num);
-	
-	int num_connected = atom_num;
-	if(num_connected > 4) {
-		num_connected = 4;
-	};	
-	for(int i = 0; i < num_connected; i++) {
-		coord_func current_coord_func = coordinate_functions[i];
-		atom &current_atom = this -> get_atom_from_num( (first_atom.*current_coord_func)() );
+	for(int i : connected_atoms) {
+		atom &current_atom = this -> get_atom_from_num(i);
 		std::vector<double> vec = current_atom.get_cart_coord();
 		coordinates_of_atoms.push_back(vec);
 	};
 	return coordinates_of_atoms;
-
 };
 
 double molecule::bond_length(int atom_num) {
@@ -216,7 +201,9 @@ double molecule::bond_length(int atom_num) {
 	std::vector<double> vec_1 = first_atom.get_cart_coord();
 	std::vector<double> vec_2 = second_atom.get_cart_coord();
 	*/
-	std::vector<std::vector<double>> coordinates_of_atoms = atom_and_connected_coord(atom_num);
+	atom& first_atom = this -> get_atom_from_num(atom_num);
+	std::vector<int> connected_atoms = first_atom.get_connected_atoms();
+	std::vector<std::vector<double>> coordinates_of_atoms = atom_and_connected_coord(connected_atoms);
 	return distance(coordinates_of_atoms[0], coordinates_of_atoms[1]); 
 };
 
@@ -232,7 +219,9 @@ double molecule::angle(int atom_num) {
 	atom& third_atom = this -> get_atom_from_num(first_atom.get_angle_atom());
 	std::vector<double> vec_3 = third_atom.get_cart_coord();
 	*/
-	std::vector<std::vector<double>> coordinates_of_atoms = atom_and_connected_coord(atom_num);
+	atom& first_atom = this -> get_atom_from_num(atom_num);
+	std::vector<int> connected_atoms = first_atom.get_connected_atoms();
+	std::vector<std::vector<double>> coordinates_of_atoms = atom_and_connected_coord(connected_atoms);
 	return calculate_angle(coordinates_of_atoms[0], coordinates_of_atoms[1], coordinates_of_atoms[2]); 
 };
 
@@ -250,7 +239,9 @@ double molecule::dihedral_angle(int atom_num) {
 	atom& fourth_atom = this -> get_atom_from_num(first_atom.get_dihedral_angle_atom());
 	std::vector<double> vec_4 = fourth_atom.get_cart_coord();
 	*/
-	std::vector<std::vector<double>> coordinates_of_atoms = atom_and_connected_coord(atom_num);
+	atom& first_atom = this -> get_atom_from_num(atom_num);
+	std::vector<int> connected_atoms = first_atom.get_connected_atoms();
+	std::vector<std::vector<double>> coordinates_of_atoms = atom_and_connected_coord(connected_atoms);
 	return calculate_dihedral_angle(coordinates_of_atoms[0], coordinates_of_atoms[1], coordinates_of_atoms[2],
 			coordinates_of_atoms[3]); 
 };
@@ -331,6 +322,106 @@ double molecule::distance(std::vector<double> coord_1, std::vector<double> coord
 	std::vector<double> displacement_vec = displacement_vector(coord_1, coord_2);
 	return sqrt(dot_product(displacement_vec, displacement_vec));
 };
+
+double molecule::bond_length_derivative(int atom_num, int second_atom_num, std::string axis) {
+	atom& first_atom = this -> get_atom_from_num(atom_num);
+	std::vector<int> connected_atoms = first_atom.get_connected_atoms();
+	
+	std::vector<std::vector<double>> coordinates_of_atoms = atom_and_connected_coord(connected_atoms);
+	double q = coordinate_value(second_atom_num, axis);
+	double dq = derivative_increment(q);
+	int pos = connected_atom_pos(connected_atoms, second_atom_num);	
+	coordinates_of_atoms[pos][axes_name_to_num(axis)] += dq;
+	double R_plus = distance(coordinates_of_atoms[0], coordinates_of_atoms[1]);
+	coordinates_of_atoms[pos][axes_name_to_num(axis)] -= -2*dq;
+	double R_minus = distance(coordinates_of_atoms[0], coordinates_of_atoms[1]);
+	return derivative_value(R_plus, R_minus, dq);	
+};
+
+double molecule::angle_derivative(int atom_num, int second_atom_num, std::string axis) {
+	atom& first_atom = this -> get_atom_from_num(atom_num);
+	std::vector<int> connected_atoms = first_atom.get_connected_atoms();
+	
+	std::vector<std::vector<double>> coordinates_of_atoms = atom_and_connected_coord(connected_atoms);
+	double q = coordinate_value(second_atom_num, axis);
+	double dq = derivative_increment(q);
+	int pos = connected_atom_pos(connected_atoms, second_atom_num);	
+
+	coordinates_of_atoms[pos][axes_name_to_num(axis)] += dq;
+	double R_plus = calculate_angle(coordinates_of_atoms[0], coordinates_of_atoms[1], coordinates_of_atoms[2]);
+	std::cout << coordinates_of_atoms[0][0];
+	coordinates_of_atoms[pos][axes_name_to_num(axis)] -= -2*dq;
+	double R_minus = calculate_angle(coordinates_of_atoms[0], coordinates_of_atoms[1], coordinates_of_atoms[2]);
+	return derivative_value(R_plus, R_minus, dq);
+};
+
+double molecule::dihedral_angle_derivative(int atom_num, int second_atom_num, std::string axis){
+	atom& first_atom = this -> get_atom_from_num(atom_num);
+	std::vector<int> connected_atoms = first_atom.get_connected_atoms();
+	
+	std::vector<std::vector<double>> coordinates_of_atoms = atom_and_connected_coord(connected_atoms);
+	double q = coordinate_value(second_atom_num, axis);
+	double dq = derivative_increment(q);
+	int pos = connected_atom_pos(connected_atoms, second_atom_num);	
+
+	coordinates_of_atoms[pos][axes_name_to_num(axis)] += dq;
+	double R_plus = calculate_dihedral_angle(coordinates_of_atoms[0], coordinates_of_atoms[1], 
+		coordinates_of_atoms[2], coordinates_of_atoms[3]);
+	coordinates_of_atoms[pos][axes_name_to_num(axis)] -= -2*dq;
+	double R_minus = calculate_dihedral_angle(coordinates_of_atoms[0], coordinates_of_atoms[1],
+		coordinates_of_atoms[2], coordinates_of_atoms[3]);
+	return derivative_value(R_plus, R_minus, dq);
+};
+
+double molecule::derivative_increment(double q) {
+	double dq = 0;
+	if(abs(q) > pow(10,-8)) {
+		dq = 0.001*abs(dq);
+	} else {
+		dq = 0.0001;
+	};
+	return dq;
+};
+
+double molecule::derivative_value(double R_plus, double R_minus, double dq) {
+	return (R_plus - R_minus)/(2*dq);		
+};
+
+double molecule::coordinate_value(int second_atom_num, std::string axis) {
+	double q = (this -> get_atom_from_num(second_atom_num)).get_cart_coord()[axes_name_to_num(axis)];
+	return q;
+};	
+
+int molecule::connected_atom_pos(std::vector<int> connected_atoms, int second_atom) {
+	bool is_in = false;
+	int pos = -1;
+	for(int i : connected_atoms) {
+		pos++;
+		if( i == second_atom) {
+			is_in = true;
+			break;	
+		}; 
+	};
+	if(!is_in) {
+		std::cerr << "Second atom not connected to first" << std::endl;
+		exit(1);
+	};
+	return pos;	
+};
+
+int molecule::axes_name_to_num(std::string axes) {
+		if(axes == "x") {
+			return 0;
+		} else if (axes == "y") {
+			return 1;
+		} else if (axes == "z") {
+			return 2;
+		} else {
+			std::cerr << "Axis not of valid type";
+			exit(1);
+		};
+};
+
 
 bool molecule::check_coord_size(std::vector<double> coord) {
 	if(coord.size() !=3) {

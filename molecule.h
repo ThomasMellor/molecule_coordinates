@@ -25,8 +25,17 @@ class molecule {
 		static bool check_coord_size(std::vector<double> coord);
 		static std::vector<double> cross_product(std::vector<double> coord_1, std::vector<double> coord_2);
 		static std::vector<double> vec_normalised(std::vector<double> vec);
-		std::vector<std::vector<double>> atom_and_connected_coord(int atom_num);
-		double derivative(double coordinate(int), int atom_num, int second_atom_num);
+		std::vector<std::vector<double>> atom_and_connected_coord(std::vector<int> connected_atoms);
+		
+		double bond_length_derivative(int atom_num, int second_atom_num, std::string axis);
+		double angle_derivative(int atom_num, int second_atom_num, std::string axis);
+		double dihedral_angle_derivative(int atom_num, int second_atom_num, std::string axis);
+		
+		static int axes_name_to_num(std::string axes);
+		double coordinate_value(int second_atom_num, std::string axis);
+		static double derivative_increment(double q);
+		static int connected_atom_pos(std::vector<int> connected_atoms, int second_atom);	
+		static double derivative_value(double R_plus, double R_minus, double dq);
 	public:
 		void print_coordinates();
 		int get_num_atoms() const;
