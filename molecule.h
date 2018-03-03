@@ -36,6 +36,7 @@ class molecule {
 		static double derivative_increment(double q);
 		static int connected_atom_pos(std::vector<int> connected_atoms, int second_atom);	
 		static double derivative_value(double R_plus, double R_minus, double dq);
+		static void print_coords(std::vector<double> coord);
 	public:
 		void print_coordinates();
 		int get_num_atoms() const;

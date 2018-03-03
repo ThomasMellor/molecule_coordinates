@@ -16,6 +16,14 @@ atom& molecule::get_atom_from_num(unsigned int num) {
 	return atoms[num-1];	
 };
 
+void molecule::print_coords(std::vector<double> coords) {
+	std::cout << "(";
+	for(double i : coords) {
+		std::cout << i << " ";
+	};
+	std::cout << ")" << std::endl;
+};	
+
 molecule::molecule(std::string z_matrix_file, std::string molecule_name) : name(molecule_name) {
 	std::ifstream stream(z_matrix_file);
 	if(!stream) {
@@ -305,7 +313,6 @@ double molecule::calculate_dihedral_angle(std::vector<double> coord_1, std::vect
 		
 	std::vector<double> vec_1 = displacement_vector(coord_1, coord_2);
 	std::vector<double> vec_2 = displacement_vector(coord_3, coord_2);
-
 	std::vector<double> vec_3 = displacement_vector(coord_4, coord_3);
 
 	std::vector<double> new_vec_1 = vec_normalised(cross_product(vec_1, vec_2));
@@ -326,14 +333,13 @@ double molecule::distance(std::vector<double> coord_1, std::vector<double> coord
 double molecule::bond_length_derivative(int atom_num, int second_atom_num, std::string axis) {
 	atom& first_atom = this -> get_atom_from_num(atom_num);
 	std::vector<int> connected_atoms = first_atom.get_connected_atoms();
-	
 	std::vector<std::vector<double>> coordinates_of_atoms = atom_and_connected_coord(connected_atoms);
 	double q = coordinate_value(second_atom_num, axis);
 	double dq = derivative_increment(q);
-	int pos = connected_atom_pos(connected_atoms, second_atom_num);	
+	int pos = connected_atom_pos(connected_atoms, second_atom_num);
 	coordinates_of_atoms[pos][axes_name_to_num(axis)] += dq;
 	double R_plus = distance(coordinates_of_atoms[0], coordinates_of_atoms[1]);
-	coordinates_of_atoms[pos][axes_name_to_num(axis)] -= -2*dq;
+	coordinates_of_atoms[pos][axes_name_to_num(axis)] += -2*dq;
 	double R_minus = distance(coordinates_of_atoms[0], coordinates_of_atoms[1]);
 	return derivative_value(R_plus, R_minus, dq);	
 };
@@ -343,14 +349,13 @@ double molecule::angle_derivative(int atom_num, int second_atom_num, std::string
 	std::vector<int> connected_atoms = first_atom.get_connected_atoms();
 	
 	std::vector<std::vector<double>> coordinates_of_atoms = atom_and_connected_coord(connected_atoms);
+	
 	double q = coordinate_value(second_atom_num, axis);
 	double dq = derivative_increment(q);
 	int pos = connected_atom_pos(connected_atoms, second_atom_num);	
-
 	coordinates_of_atoms[pos][axes_name_to_num(axis)] += dq;
 	double R_plus = calculate_angle(coordinates_of_atoms[0], coordinates_of_atoms[1], coordinates_of_atoms[2]);
-	std::cout << coordinates_of_atoms[0][0];
-	coordinates_of_atoms[pos][axes_name_to_num(axis)] -= -2*dq;
+	coordinates_of_atoms[pos][axes_name_to_num(axis)] += -2*dq;
 	double R_minus = calculate_angle(coordinates_of_atoms[0], coordinates_of_atoms[1], coordinates_of_atoms[2]);
 	return derivative_value(R_plus, R_minus, dq);
 };
@@ -361,13 +366,13 @@ double molecule::dihedral_angle_derivative(int atom_num, int second_atom_num, st
 	
 	std::vector<std::vector<double>> coordinates_of_atoms = atom_and_connected_coord(connected_atoms);
 	double q = coordinate_value(second_atom_num, axis);
+
 	double dq = derivative_increment(q);
 	int pos = connected_atom_pos(connected_atoms, second_atom_num);	
-
 	coordinates_of_atoms[pos][axes_name_to_num(axis)] += dq;
 	double R_plus = calculate_dihedral_angle(coordinates_of_atoms[0], coordinates_of_atoms[1], 
 		coordinates_of_atoms[2], coordinates_of_atoms[3]);
-	coordinates_of_atoms[pos][axes_name_to_num(axis)] -= -2*dq;
+	coordinates_of_atoms[pos][axes_name_to_num(axis)] += -2*dq;
 	double R_minus = calculate_dihedral_angle(coordinates_of_atoms[0], coordinates_of_atoms[1],
 		coordinates_of_atoms[2], coordinates_of_atoms[3]);
 	return derivative_value(R_plus, R_minus, dq);
@@ -375,8 +380,11 @@ double molecule::dihedral_angle_derivative(int atom_num, int second_atom_num, st
 
 double molecule::derivative_increment(double q) {
 	double dq = 0;
-	if(abs(q) > pow(10,-8)) {
-		dq = 0.001*abs(dq);
+	if(q < 0) {
+		q = -q; 
+	};
+	if(q > pow(10,-8)) {
+		dq = 0.001*q;
 	} else {
 		dq = 0.0001;
 	};
