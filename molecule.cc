@@ -6,7 +6,66 @@
 #include <functional>
 #include <map>
 
+
+
 typedef int (atom::*coord_func)() const;
+
+Eigen::MatrixXd molecule::empty_matrix() {
+	return Eigen::MatrixXd(3*num_atoms, 3*num_atoms); 
+};
+
+Eigen::MatrixXd& molecule::derivative_matrix(Eigen::MatrixXd& mat) {	
+	std::vector<std::string> axes = {"x", "y", "z"};
+	for(int i = 1; i <= num_atoms; i++) {
+		for(std::string axis_i : axes) {
+			for(int j = 1; j <= i; j++) {
+				for(std::string axis_j : axes) {
+					double val = 0;
+					for(int k = 2; k <= num_atoms; k++) {
+						atom& first_atom = this -> get_atom_from_num(k);
+						std::vector<int> con_atoms = {first_atom.get_number(), first_atom.get_bond_length_atom()};
+						
+						if( check_derivative_atoms(con_atoms, i, j)){
+							val += bond_length_derivative(k, i, axis_i)*bond_length_derivative(k, j, axis_j);
+						};
+					};
+					for(int k = 3; k <= num_atoms; k++) {
+						atom& first_atom = this -> get_atom_from_num(k);
+						std::vector<int> con_atoms = {first_atom.get_number(), first_atom.get_bond_length_atom(), 
+							first_atom.get_angle_atom()};
+						if(check_derivative_atoms(con_atoms, i, j)){
+							val += angle_derivative(k, i, axis_i)*angle_derivative(k, j, axis_j);
+						};
+					};
+					for(int k = 4; k <= num_atoms; k++) {
+						atom& first_atom = this -> get_atom_from_num(k);
+						std::vector<int> con_atoms = first_atom.get_connected_atoms();
+						if(check_derivative_atoms(con_atoms, i, j)){
+							val += dihedral_angle_derivative(k, i, axis_i)*dihedral_angle_derivative(k, j, axis_j);
+						};
+					};
+					mat(3*(i-1) + axes_name_to_num(axis_i), 3*(j-1) + axes_name_to_num(axis_j)) = val;
+					mat(3*(j-1) + axes_name_to_num(axis_j), 3*(i-1) + axes_name_to_num(axis_i)) = val;
+				};
+			};
+		};	
+	};
+	return mat;
+};
+
+bool molecule::check_derivative_atoms(std::vector<int> connected_atoms, int atom_1, int atom_2) {
+	bool bool_a1 = false;
+	bool bool_a2 = false;
+	for(int con_atom : connected_atoms) {
+		if(atom_1 == con_atom) {
+			bool_a1 = true;
+		};
+		if(atom_2 == con_atom) {
+			bool_a2 = true;
+		};	
+	};
+	return (bool_a1 & bool_a2); 
+};
 
 int molecule::get_num_atoms() const {
 	return num_atoms;

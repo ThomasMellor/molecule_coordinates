@@ -1,6 +1,7 @@
 #include "atom.h"
 #include <iostream>
 #include "molecule.h"
+#include "eigen-eigen-5a0156e40feb/Eigen/"
 
 int main() {
 	molecule mol("./test.txt", "CH4");

@@ -4,7 +4,7 @@
 #include "atom.h"
 #include <vector>
 #include <string> 
-
+#include "eigen-eigen-5a0156e40feb/Eigen/Dense"
 class molecule {
 	public:
 		int num_atoms = 0;
@@ -37,6 +37,10 @@ class molecule {
 		static int connected_atom_pos(std::vector<int> connected_atoms, int second_atom);	
 		static double derivative_value(double R_plus, double R_minus, double dq);
 		static void print_coords(std::vector<double> coord);
+	
+		Eigen::MatrixXd empty_matrix();	
+		Eigen::MatrixXd& derivative_matrix(Eigen::MatrixXd& mat);
+		static bool check_derivative_atoms(std::vector<int> connected_atoms, int atom_1, int atom_2);
 	public:
 		void print_coordinates();
 		int get_num_atoms() const;
