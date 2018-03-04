@@ -26,6 +26,7 @@ class atom {
 		int get_number() const;
 		std::vector<double> get_cart_coord() const;
 		void set_cart_coord(double x, double y, double z); 
+		void update_cart_coord(double dx, double dy, double dz);
 		int get_bond_length_atom() const;
 		int get_angle_atom() const;
 		int get_dihedral_angle_atom() const;	

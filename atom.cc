@@ -33,6 +33,13 @@ void atom::set_cart_coord(double x, double y, double z) {
 	return;
 };
 
+void atom::update_cart_coord(double dx, double dy, double dz) {
+	std::vector<double> update = {dx, dy, dz};
+	for(int i = 0; i < 3; i++) {
+		cart_coord[i] += update[i];
+	};
+};
+
 int atom::get_bond_length_atom() const {
 	return check_value(bond_length_atom);
 };

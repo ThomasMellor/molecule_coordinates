@@ -41,6 +41,9 @@ class molecule {
 		Eigen::MatrixXd empty_matrix();	
 		Eigen::MatrixXd& derivative_matrix(Eigen::MatrixXd& mat);
 		static bool check_derivative_atoms(std::vector<int> connected_atoms, int atom_1, int atom_2);
+		Eigen::VectorXd& derivative_vector(Eigen::VectorXd& vec, std::vector<std::vector<double>> try_coord);
+		Eigen::VectorXd empty_vector();
+		double coord_difference(std::vector<std::vector<double>> try_coord);
 	public:
 		void print_coordinates();
 		int get_num_atoms() const;
@@ -49,6 +52,8 @@ class molecule {
 		double angle(int atom_num);
 		double dihedral_angle(int atom_num);
 		void set_atom_coord(int atom_num, double x, double y, double z );
+		void update_atom_coord(int atom_num, double dx, double dy, double dz);
 		void set_molecule_coord(std::string coord_file);
+		void update_molecule_coord(const Eigen::VectorXd& vec);
 };
 #endif

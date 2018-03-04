@@ -67,6 +67,58 @@ bool molecule::check_derivative_atoms(std::vector<int> connected_atoms, int atom
 	return (bool_a1 & bool_a2); 
 };
 
+Eigen::VectorXd& molecule::derivative_vector(Eigen::VectorXd& vec, std::vector<std::vector<double>> try_coord) {
+	std::vector<std::string> axes = {"x", "y", "z"};
+	for(int i = 1; i <= num_atoms; i++) {
+		for(std::string axis : axes) {
+			double val = 0;	
+			for(int k = 2; k <= num_atoms; k++) {
+				atom& first_atom = this -> get_atom_from_num(k);
+				std::vector<int> con_atoms = {first_atom.get_number(), first_atom.get_bond_length_atom()};
+
+				if( check_derivative_atoms(con_atoms, i, i)){
+					val += bond_length_derivative(k, i, axis)*(bond_length(k) - try_coord[k-1][0]);
+				};
+			};
+			for(int k = 3; k <= num_atoms; k++) {
+				atom& first_atom = this -> get_atom_from_num(k);
+				std::vector<int> con_atoms = {first_atom.get_number(), first_atom.get_bond_length_atom(), 
+					first_atom.get_angle_atom()};
+				if(check_derivative_atoms(con_atoms, i, i)){
+					val += angle_derivative(k, i, axis)*(angle(k) - try_coord[k-1][1]);
+				};
+			};
+			for(int k = 4; k <= num_atoms; k++) {
+				atom& first_atom = this -> get_atom_from_num(k);
+				std::vector<int> con_atoms = first_atom.get_connected_atoms();
+				if(check_derivative_atoms(con_atoms, i, i)){
+					val += dihedral_angle_derivative(k, i, axis)*(dihedral_angle(k) - try_coord[k-1][2]);
+				};
+			};
+			vec(3*(i-1) + axes_name_to_num(axis)) = val;
+		};
+	};
+	return vec;	
+};
+
+Eigen::VectorXd molecule::empty_vector() {
+	return Eigen::VectorXd(3*num_atoms);
+};
+
+double molecule::coord_difference(std::vector<std::vector<double>> try_coord) {
+	double val = 0;
+	for(int i = 2; i <= num_atoms; i++) {
+		val += pow(bond_length(i) - try_coord[i-1][0], 2);
+	};
+	for(int i = 3; i <= num_atoms; i++) {
+		val += pow(angle(i) - try_coord[i-1][1],2);
+	};
+	for(int i = 4; i <= num_atoms; i++) {
+		val += pow(dihedral_angle(i) - try_coord[i-1][2],2);
+	};
+	return val;
+};
+
 int molecule::get_num_atoms() const {
 	return num_atoms;
 };
@@ -233,7 +285,7 @@ void molecule::set_molecule_coord(std::string coord_file) {
 		std::string name;
 		iss >> name;
 		if((this -> get_atom_from_num(atom_counter)).get_name() != name) {
-			std::cout << "Incorrect atom name" << std::endl;
+			std::cerr << "Incorrect atom name" << std::endl;
 			exit(1);
 		};
 		double x, y, z;
@@ -243,10 +295,26 @@ void molecule::set_molecule_coord(std::string coord_file) {
 	return;
 };
 
+void molecule::update_molecule_coord(const Eigen::VectorXd& vec) {
+	if(vec.size() != 3*num_atoms) {
+		std::cerr << "Incorrect vector size" << std::endl;
+		exit(1);
+	};
+	for(int i = 1; i <= num_atoms; i++) {
+		
+		update_atom_coord(i, vec(3*(i-1)), vec(3*(i-1) + 1), vec(3*(i-1) + 2));
+	};	
+	return;  
+};
+
 
 void molecule::set_atom_coord(int atom_num, double x, double y, double z) {
 	(this -> get_atom_from_num(atom_num)).set_cart_coord(x, y, z);
 };	
+
+void molecule::update_atom_coord(int atom_num, double dx, double dy, double dz) {
+	(this -> get_atom_from_num(atom_num)).update_cart_coord(dx, dy, dz);
+};
 
 std::vector<std::vector<double>> molecule::atom_and_connected_coord(std::vector<int> connected_atoms) {
 	std::vector<std::vector<double>> coordinates_of_atoms;
@@ -438,15 +506,15 @@ double molecule::dihedral_angle_derivative(int atom_num, int second_atom_num, st
 };
 
 double molecule::derivative_increment(double q) {
-	double dq = 0;
-	if(q < 0) {
+	double dq = 0.0001;
+	/*if(q < 0) {
 		q = -q; 
 	};
 	if(q > pow(10,-8)) {
 		dq = 0.001*q;
 	} else {
 		dq = 0.0001;
-	};
+	};*/
 	return dq;
 };
 
