@@ -1,13 +1,14 @@
 #include "atom.h"
 #include <iostream>
-#include "molecule.h"
+#include "molecule_2.h"
 #include "eigen-eigen-5a0156e40feb/Eigen/Dense"
 
 int main() {
 	molecule mol("./test.txt", "CH4");
-	mol.set_molecule_coord("./test_coords_1.txt");
-	mol.print_coordinates();
-	std::vector<std::vector<double>> test_coord= {{},{1},{1,1}, {1,2,0.1},{1.4,2,3},{1,2,0.1},{1,2,2},{2,2,-2}};
+	mol.set_molecule_coord_Z("./test_coords_1.txt");	
+//	mol.print_cart_coords();
+ 	// mol.print_cart_coords();
+	/*	std::vector<std::vector<double>> test_coord= {{},{1},{1,1}, {1,2,0.1},{1.4,2,3},{1,2,0.1},{1,2,2},{2,2,-2}};
 	Eigen::MatrixXd mat = mol.empty_matrix();
 	Eigen::VectorXd vec = mol.empty_vector();
 	Eigen::VectorXd x = mol.empty_vector();
@@ -24,5 +25,6 @@ while((mol.coord_difference(test_coord) > 0.00000001) || (counter < 5)) {
 		std::cout << counter << " " << mol.coord_difference(test_coord) << std::endl;
 		mol.print_coordinates();
 	};
+	*/
 	mol.print_coordinates(); 
 };
