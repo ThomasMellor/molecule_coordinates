@@ -10,6 +10,97 @@
 
 typedef int (atom::*coord_func)() const;
 
+Eigen::MatrixXd molecule::Amat() {
+	Eigen::MatrixXd A = Eigen::MatrixXd(3,3);
+	for(int i = 1; i <= num_atoms; i++) {
+		atom& cur_atom = get_atom_from_num(i);
+		double mass = cur_atom.get_mass();
+		Eigen::Vector3d coord = cur_atom.get_cart_coord(1);
+		Eigen::Vector3d eq_coord = cur_atom.get_cart_coord(0);
+		for(int j = 0; j < coord.size(); j++) {
+			for(int k = 0; k < coord.size(); k++) {
+				A(j,k) += mass*coord(j)*eq_coord(k);
+			};
+		};
+	};
+	return A;
+};
+
+Eigen::MatrixXd molecule::ATAmat(const Eigen::MatrixXd& A) {
+	return A.transpose()*A;
+};
+
+Eigen::MatrixXd molecule::Tmat(const Eigen::MatrixXd& A, const Eigen::MatrixXd& ATA) {
+	Eigen::EigenSolver<Eigen::MatrixXd> es;
+	es.compute(ATA, true);
+
+	Eigen::Vector3d vec_1 = es.eigenvectors().col(0).real();  
+	
+	vec_1 = vec_1/sqrt(vec_1.dot(vec_1));
+	//vec_normalised(vec_1);	
+	Eigen::Vector3d vec_2 = es.eigenvectors().col(1).real();
+	//vec_normalised(vec_2);
+	vec_2 = vec_2/sqrt(vec_2.dot(vec_2));
+	Eigen::Vector3d vec_3 = vec_1.cross(vec_2);
+	//vec_normalised(vec_3); 
+	vec_3 = vec_3/sqrt(vec_3.dot(vec_3));
+	std::vector<Eigen::Vector3d> first_set = {vec_1, vec_2, vec_3};
+
+	Eigen::Vector3d wec_1 = A*vec_1;
+	//vec_normalised(wec_1);
+	wec_1 = wec_1/sqrt(wec_1.dot(wec_1));
+	Eigen::Vector3d wec_2 = A*vec_2;
+	//vec_normalised(wec_2);
+	wec_2 = wec_2/sqrt(wec_2.dot(wec_2));
+	Eigen::Vector3d wec_3 = wec_1.cross(wec_2);
+	//vec_normalised(wec_3);
+	wec_3 = wec_3/sqrt(wec_3.dot(wec_3));
+
+	std::vector<Eigen::Vector3d> second_set = {wec_1, wec_2, wec_3}; 
+	
+	Eigen::MatrixXd T = Eigen::MatrixXd(3,3);
+	for(int i = 0; i < 3; i++) {
+		for(int j = 0; j < 3; j++) {
+			for(int k = 0; k < 3; k++) {
+				T(i, j) += first_set[k][i]*second_set[k][j];
+			};	
+		};
+	};
+	return T;
+};
+
+Eigen::Vector3d vec_normalised(Eigen::Vector3d vec) {
+	return vec/sqrt(vec.dot(vec));	
+};
+
+void molecule::rotate_coords(const Eigen::MatrixXd& T) {	
+	for(int i = 1; i <= num_atoms; i++) {
+		Eigen::Vector3d coords = get_atom_coord(1, i);
+		Eigen::Vector3d values = {0,0,0};
+		for(int j = 0; j < 3; j++) {
+			for(int k = 0; k < 3; k++) {
+				values[j] += coords[k]*T(j,k);	
+			};
+		};
+		set_atom_coord(1, i, values[0], values[1], values[2]);
+	};
+	return;
+};
+
+Eigen::Vector3d molecule::Eckart_cond() {
+	Eigen::Vector3d total = {0,0,0};
+	for(int i = 1; i <= num_atoms; i++) {
+		atom& cur_atom = get_atom_from_num(i);
+		double cur_mass = cur_atom.get_mass();
+		Eigen::Vector3d eq_coord = cur_atom.get_cart_coord(0);
+		Eigen::Vector3d coord = cur_atom.get_cart_coord(1);
+		Eigen::Vector3d cross = eq_coord.cross(coord);
+		total += cur_mass*cross;
+	};
+	return total;
+};	
+
+
 /*Eigen::MatrixXd molecule::empty_matrix() {
 	return Eigen::MatrixXd(3*num_atoms, 3*num_atoms); 
 };
@@ -149,14 +240,19 @@ molecule::molecule(std::string z_matrix_file, std::string molecule_name) : name(
 	};
 	std::istringstream iss_1(line);
 	std::string atom_name;
+	double mass;
 	int number_of_atoms = 0;
 	if(!(iss_1 >> atom_name)){
 		file_error_message();
 		exit(1);
 	};
+	if(!(iss_1 >> mass)) {
+		file_error_message();
+		exit(1);
+	};
 	number_of_atoms++;
-	atoms.push_back(atom(number_of_atoms, atom_name));
-	
+	atoms.push_back(atom(number_of_atoms, mass, atom_name));
+
 	if(!getline(stream, line)) {
 		file_error_message();
 		exit(1);
@@ -166,6 +262,10 @@ molecule::molecule(std::string z_matrix_file, std::string molecule_name) : name(
 		file_error_message();
 		exit(1);
 	};
+	if(!(iss_2 >> mass)) {
+		file_error_message();
+		exit(1);
+	}
 	int num_bond_atom = 0;
 	if(!(iss_2 >> num_bond_atom)){
 		file_error_message();
@@ -176,7 +276,7 @@ molecule::molecule(std::string z_matrix_file, std::string molecule_name) : name(
 		exit(1);
 	};
 	number_of_atoms++;
-	atom second_atom(number_of_atoms, atom_name, num_bond_atom);
+	atom second_atom(number_of_atoms, mass,  atom_name, num_bond_atom);
 	atoms.push_back(second_atom);
 
 	if(!getline(stream, line)) {
@@ -187,6 +287,10 @@ molecule::molecule(std::string z_matrix_file, std::string molecule_name) : name(
 		file_error_message();
 		exit(1);
 	};
+	if(!(iss_3 >> mass)) {
+		file_error_message();
+		exit(1);
+	}
 	if(!(iss_3 >> num_bond_atom)){
 		file_error_message();
 		exit(1);
@@ -205,7 +309,7 @@ molecule::molecule(std::string z_matrix_file, std::string molecule_name) : name(
 		exit(1);
 	};
 	number_of_atoms++;
-	atom third_atom(number_of_atoms, atom_name, num_bond_atom, num_angle_atom);
+	atom third_atom(number_of_atoms, mass, atom_name, num_bond_atom, num_angle_atom);
 	atoms.push_back(third_atom);
 	while(getline(stream, line)) {
 		std::istringstream iss_4(line);
@@ -213,6 +317,10 @@ molecule::molecule(std::string z_matrix_file, std::string molecule_name) : name(
 			file_error_message();
 			exit(1);
 		};
+		if(!(iss_4 >> mass)) {
+			file_error_message();
+			exit(1);
+		}
 		if(!(iss_4 >> num_bond_atom)){
 			file_error_message();
 			exit(1);
@@ -235,13 +343,13 @@ molecule::molecule(std::string z_matrix_file, std::string molecule_name) : name(
 			exit(1);
 		};
 		number_of_atoms++;
-		atom remaining_atom(number_of_atoms, atom_name, num_bond_atom, num_angle_atom, num_dihedral_atom);
+		atom remaining_atom(number_of_atoms, mass, atom_name, num_bond_atom, num_angle_atom, num_dihedral_atom);
 		atoms.push_back(remaining_atom);		
 	};
 	num_atoms = number_of_atoms;
 };
 
-void molecule::print_coordinates() {
+void molecule::print_coordinates(int type) {
 	for(int i = 1; i <= num_atoms; i++) {
 		if(i == 1) {
 			std::cout << (*this).get_atom_from_num(i).get_name() << std::endl;
@@ -249,40 +357,36 @@ void molecule::print_coordinates() {
 			atom& cur_atom = (*this).get_atom_from_num(i);
 			std::cout << cur_atom.get_name() << " ";
 			std::cout << cur_atom.get_bond_length_atom() << " ";
-			std::cout << (this -> bond_length(i)) << std::endl;
+			std::cout << (this -> bond_length(type, i)) << std::endl;
 		} else if(i == 3) {
 			atom& cur_atom = (*this).get_atom_from_num(i);
 			std::cout << cur_atom.get_name() << " ";
 			std::cout << cur_atom.get_bond_length_atom() << " ";
-			std::cout << (this -> bond_length(i)) << " ";
+			std::cout << (this -> bond_length(type, i)) << " ";
 			std::cout << cur_atom.get_angle_atom() << " ";
-			std::cout << (this -> angle(i)) << std::endl;;
+			std::cout << (this -> angle(type, i)) << std::endl;;
 		} else {
 			atom& cur_atom = (*this).get_atom_from_num(i);
 			std::cout << cur_atom.get_name() << " ";
 			std::cout << cur_atom.get_bond_length_atom() << " ";
-			std::cout << (this -> bond_length(i)) << " ";
+			std::cout << (this -> bond_length(type, i)) << " ";
 			std::cout << cur_atom.get_angle_atom() << " ";
-			std::cout << (this -> angle(i)) << " ";
+			std::cout << (this -> angle(type, i)) << " ";
 			std::cout << cur_atom.get_dihedral_angle_atom() << " ";
-			std::cout << (this -> dihedral_angle(i)) << std::endl;
+			std::cout << (this -> dihedral_angle(type, i)) << std::endl;
 		};
 	};
 };
 
-void molecule::print_cart_coords() {
+void molecule::print_cart_coords(int type) {
 	for(int i = 1; i <= num_atoms; i++) {
-		std::vector<double> coords = get_atom_coord(i);
-		std::cout << "(";
-		for(double j : coords) {
-			std::cout << j << " ";
-		};	
-		std::cout << ")" << std::endl;
+		Eigen::Vector3d coords = get_atom_coord(type, i);
+		std::cout << coords.transpose()	<< std::endl;
 	};
 	return;
 };
 
-void molecule::set_molecule_coord(std::string coord_file) {
+void molecule::set_molecule_coord(int type, std::string coord_file) {
 	std::ifstream stream(coord_file);
 	std::string line;
 	int atom_counter = 0;
@@ -301,12 +405,13 @@ void molecule::set_molecule_coord(std::string coord_file) {
 		};
 		double x, y, z;
 		iss >> x; iss >> y; iss >> z;
-		this -> set_atom_coord(atom_counter, x, y, z);
+		this -> set_atom_coord(type, atom_counter, x, y, z);
 	};
+	move_to_COM(type);
 	return;
 };
 
-void molecule::set_molecule_coord_Z(std::string coord_file) {
+void molecule::set_molecule_coord_Z(int type, std::string coord_file) {
 	std::ifstream stream(coord_file);
 	if(!stream) {
 		std::cerr << "Error opening file " + coord_file << std::endl;
@@ -314,6 +419,12 @@ void molecule::set_molecule_coord_Z(std::string coord_file) {
 	};
 	std::string line;
 	int atom_counter = 0;
+	int bond_atom;
+	double r;
+	int angle_atom;
+	double angle;
+	int di_angle_atom;
+	double di_angle;
 	while(getline(stream, line)) {
 		atom_counter++;
 		if(atom_counter > (*this).num_atoms) {
@@ -330,16 +441,11 @@ void molecule::set_molecule_coord_Z(std::string coord_file) {
 			std::cerr << "Incorrect atom name" << std::endl;
 			exit(1);
 		};
-		int bond_atom;
-		double r;
-		int angle_atom;
-		double angle;
-		int di_angle_atom;
-		double di_angle;
-		if(atom_counter == 1) {
-			this -> set_atom_coord(atom_counter, 0, 0, 0);
-		} else if(atom_counter == 2) {
+		atom& cur_atom = get_atom_from_num(atom_counter);
 
+		if(atom_counter == 1) {
+			cur_atom.set_cart_coord(type, 0, 0, 0);
+		} else if(atom_counter == 2) {
 			if(!(iss >> bond_atom)){
 				file_error_message();
 				exit(1);
@@ -348,10 +454,16 @@ void molecule::set_molecule_coord_Z(std::string coord_file) {
 				file_error_message();
 				exit(1);
 			};
-
-			this -> set_atom_coord(atom_counter, 0, 0, r);
+	
+			if(cur_atom.get_bond_length_atom() != bond_atom) {
+				Z_coord_error();
+				exit(1);
+			};
+		
+			cur_atom.set_cart_coord(type, 0, 0, r);
+		
 		} else if(atom_counter == 3) {
-
+			
 			if(!(iss >> bond_atom)){
 				file_error_message();
 				exit(1);
@@ -368,10 +480,17 @@ void molecule::set_molecule_coord_Z(std::string coord_file) {
 				file_error_message();
 				exit(1);
 			};
+			
+			if( (cur_atom.get_bond_length_atom() != bond_atom) && 
+			(cur_atom.get_angle_atom() != angle_atom) ) {
+				Z_coord_error();
+				exit(1); 
+			};
 
 			int pm = 3  - 2*bond_atom;
-			std::vector<double> bond_coords = get_atom_coord(bond_atom);
-			set_atom_coord(atom_counter, 0, r*sin(angle), bond_coords[2] + r*pm*cos(angle));
+			Eigen::Vector3d bond_coords = get_atom_coord(type, bond_atom);
+			cur_atom.set_cart_coord(type, 0, r*sin(angle), bond_coords[2] + r*pm*cos(angle));
+		
 		} else if(atom_counter > 3) {
 			if(!(iss >> bond_atom)){
 				file_error_message();
@@ -397,63 +516,90 @@ void molecule::set_molecule_coord_Z(std::string coord_file) {
 				file_error_message();
 				exit(1);
 			};
-			std::vector<double> angle_vec = get_atom_coord(angle_atom);
-			std::vector<double> z_axis = vec_normalised( displacement_vector(get_atom_coord(bond_atom), angle_vec) );
-			std::vector<double> y_axis = vec_normalised(cross_product(z_axis, displacement_vector(get_atom_coord(di_angle_atom),angle_vec)  ) );
-			std::vector<double> x_axis = cross_product( y_axis, z_axis);
-			std::vector<double> bond_coords = get_atom_coord(bond_atom);
-			std::vector<double> added_vec = {0,0,0};
-			for(int i = 0; i < added_vec.size(); i++) {
-				added_vec[i] = r*(x_axis[i]*sin(angle)*cos(di_angle) 
-						+ y_axis[i]*sin(angle)*sin(di_angle)
-						- z_axis[i]*cos(angle));
+	
+			if( (cur_atom.get_bond_length_atom() != bond_atom) && 
+			(cur_atom.get_angle_atom() != angle_atom) && 
+		    (cur_atom.get_dihedral_angle_atom() != di_angle_atom) ){
+				Z_coord_error();
+				exit(1); 
 			};
-			set_atom_coord(atom_counter, bond_coords[0] + added_vec[0], bond_coords[1] + added_vec[1], 
+		
+			Eigen::Vector3d angle_vec = get_atom_coord(type, angle_atom);
+			Eigen::Vector3d z_axis =  get_atom_coord(type, bond_atom) - angle_vec;
+			z_axis = z_axis/sqrt(z_axis.dot(z_axis));
+			Eigen::Vector3d y_axis = z_axis.cross(get_atom_coord(type, di_angle_atom) - angle_vec);
+			y_axis = y_axis/sqrt(y_axis.dot(y_axis));
+			Eigen::Vector3d x_axis = y_axis.cross(z_axis);
+			Eigen::Vector3d bond_coords = get_atom_coord(type, bond_atom);
+			Eigen::Vector3d added_vec = {0,0,0};
+				added_vec = r*(x_axis*sin(angle)*cos(di_angle) 
+						+ y_axis*sin(angle)*sin(di_angle)
+						- z_axis*cos(angle));
+			cur_atom.set_cart_coord(type, bond_coords[0] + added_vec[0], bond_coords[1] + added_vec[1], 
 				bond_coords[2] + added_vec[2]);	
 		};
 	};
+	move_to_COM(type);
 	return;
 
 };
 
+void molecule::move_to_COM(int type) {
+	Eigen::Vector3d com = {0,0,0};
+	double total_mass; 
+	for(int i = 1; i <= num_atoms; i++) {
+		atom& cur_atom = get_atom_from_num(i);
+		Eigen::Vector3d coords = cur_atom.get_cart_coord(type);
+		double cur_mass = cur_atom.get_mass();
+		com += cur_mass*coords;
+		total_mass += cur_mass;
+	};		
+	com  = com/total_mass;
+	for(int i = 1; i <= num_atoms; i++) {
+		update_atom_coord(type, i, -com[0], -com[1], -com[2]);
+	};
+};
+
 void molecule::update_molecule_coord(const Eigen::VectorXd& vec) {
+
 	if(vec.size() != 3*num_atoms) {
 		std::cerr << "Incorrect vector size" << std::endl;
 		exit(1);
 	};
 	for(int i = 1; i <= num_atoms; i++) {
 		
-		update_atom_coord(i, vec(3*(i-1)), vec(3*(i-1) + 1), vec(3*(i-1) + 2));
+		update_atom_coord(0, i, vec(3*(i-1)), vec(3*(i-1) + 1), vec(3*(i-1) + 2));
 	};	
 	return;  
 };
 
 
-void molecule::set_atom_coord(int atom_num, double x, double y, double z) {
-	(this -> get_atom_from_num(atom_num)).set_cart_coord(x, y, z);
+void molecule::set_atom_coord(int type, int atom_num, double x, double y, double z) {
+	(this -> get_atom_from_num(atom_num)).set_cart_coord(type, x, y, z);
 };	
 
-void molecule::update_atom_coord(int atom_num, double dx, double dy, double dz) {
-	(this -> get_atom_from_num(atom_num)).update_cart_coord(dx, dy, dz);
+void molecule::update_atom_coord(int type, int atom_num, double dx, double dy, double dz) {
+	(this -> get_atom_from_num(atom_num)).update_cart_coord(type,  dx, dy, dz);
 };
 
-std::vector<std::vector<double>> molecule::atom_and_connected_coord(std::vector<int> connected_atoms) {
-	std::vector<std::vector<double>> coordinates_of_atoms;
+std::vector<Eigen::Vector3d> molecule::atom_and_connected_coord(int type, std::vector<int> connected_atoms) {
+	std::vector<Eigen::Vector3d> coordinates_of_atoms;
 	for(int i : connected_atoms) {
 		atom &current_atom = this -> get_atom_from_num(i);
-		std::vector<double> vec = current_atom.get_cart_coord();
+		Eigen::Vector3d vec = current_atom.get_cart_coord(type);
 		coordinates_of_atoms.push_back(vec);
 	};
 	return coordinates_of_atoms;
 };
 
-std::vector<double> molecule::get_atom_coord(int atom_num) {
+
+Eigen::Vector3d molecule::get_atom_coord(int type, int atom_num) {
 	atom &current_atom = this -> get_atom_from_num(atom_num);
-	std::vector<double> vec = current_atom.get_cart_coord();
+	Eigen::Vector3d vec = current_atom.get_cart_coord(type);
 	return vec;
 };
 
-double molecule::bond_length(int atom_num) {
+double molecule::bond_length(int type, int atom_num) {
 	if(atom_num == 1) {
 		std::cerr << "No bond length defined for atom one." << std::endl;
 		exit(1);
@@ -463,13 +609,13 @@ double molecule::bond_length(int atom_num) {
 	std::vector<double> vec_1 = first_atom.get_cart_coord();
 	std::vector<double> vec_2 = second_atom.get_cart_coord();
 	*/
-	atom& first_atom = this -> get_atom_from_num(atom_num);
+	atom& first_atom = this -> get_atom_from_num( atom_num);
 	std::vector<int> connected_atoms = first_atom.get_connected_atoms();
-	std::vector<std::vector<double>> coordinates_of_atoms = atom_and_connected_coord(connected_atoms);
+	std::vector<Eigen::Vector3d> coordinates_of_atoms = atom_and_connected_coord(type, connected_atoms);
 	return distance(coordinates_of_atoms[0], coordinates_of_atoms[1]); 
 };
 
-double molecule::angle(int atom_num) {
+double molecule::angle(int type, int atom_num) {
 	if(atom_num < 3) {
 		std::cerr << "No angle defined for this atom." << std::endl;
 		exit(1);
@@ -483,11 +629,11 @@ double molecule::angle(int atom_num) {
 	*/
 	atom& first_atom = this -> get_atom_from_num(atom_num);
 	std::vector<int> connected_atoms = first_atom.get_connected_atoms();
-	std::vector<std::vector<double>> coordinates_of_atoms = atom_and_connected_coord(connected_atoms);
+	std::vector<Eigen::Vector3d> coordinates_of_atoms = atom_and_connected_coord(type, connected_atoms);
 	return calculate_angle(coordinates_of_atoms[0], coordinates_of_atoms[1], coordinates_of_atoms[2]); 
 };
 
-double molecule::dihedral_angle(int atom_num) {
+double molecule::dihedral_angle(int type, int atom_num) {
 	if(atom_num < 4) {
 		std::cerr << "No dihedral angle defined for this atom." << std::endl;
 		exit(1);
@@ -503,67 +649,67 @@ double molecule::dihedral_angle(int atom_num) {
 	*/
 	atom& first_atom = this -> get_atom_from_num(atom_num);
 	std::vector<int> connected_atoms = first_atom.get_connected_atoms();
-	std::vector<std::vector<double>> coordinates_of_atoms = atom_and_connected_coord(connected_atoms);
+	std::vector<Eigen::Vector3d> coordinates_of_atoms = atom_and_connected_coord(type, connected_atoms);
 	return calculate_dihedral_angle(coordinates_of_atoms[0], coordinates_of_atoms[1], coordinates_of_atoms[2],
 			coordinates_of_atoms[3]); 
 };
 
-double molecule::dot_product(std::vector<double> coord_1, std::vector<double> coord_2) {
-	if(!check_coord_size(coord_1) || !check_coord_size(coord_2)) {
-		coord_length_error_message();
-		exit(1);	
-	};	
-	return coord_1[0]*coord_2[0] + 
-		coord_1[1]*coord_2[1] + 
-		coord_1[2]*coord_2[2];
-};
+//double molecule::dot_product(std::vector<double> coord_1, std::vector<double> coord_2) {
+//	if(!check_coord_size(coord_1) || !check_coord_size(coord_2)) {
+//		coord_length_error_message();
+//		exit(1);	
+//	};	
+//	return coord_1[0]*coord_2[0] + 
+//		coord_1[1]*coord_2[1] + 
+//		coord_1[2]*coord_2[2];
+//};
 
-std::vector<double> molecule::cross_product(std::vector<double> coord_1, std::vector<double> coord_2) {
-	if(!check_coord_size(coord_1) || !check_coord_size(coord_2)) {
-		coord_length_error_message();
-		exit(1);	
-	}
-	std::vector<double> result = {coord_1[1]*coord_2[2] - coord_1[2]*coord_2[1], 
-		coord_1[2]*coord_2[0] - coord_1[0]*coord_2[2], coord_1[0]*coord_2[1] - coord_2[0]*coord_1[1]};
-	return result;
-};
-std::vector<double> molecule::displacement_vector(std::vector<double> coord_1, std::vector<double> coord_2) {
-	if(!check_coord_size(coord_1) || !check_coord_size(coord_2)) {
-		coord_length_error_message();
-		exit(1);	
-	};
-	std::vector<double> displacement = {coord_1[0] -coord_2[0], coord_1[1] - coord_2[1], coord_1[2] -coord_2[2]};
-	return displacement;
-};
+//std::vector<double> molecule::cross_product(std::vector<double> coord_1, std::vector<double> coord_2) {
+//	if(!check_coord_size(coord_1) || !check_coord_size(coord_2)) {
+//		coord_length_error_message();
+//		exit(1);	
+//	}
+//	std::vector<double> result = {coord_1[1]*coord_2[2] - coord_1[2]*coord_2[1], 
+//		coord_1[2]*coord_2[0] - coord_1[0]*coord_2[2], coord_1[0]*coord_2[1] - coord_2[0]*coord_1[1]};
+//	return result;
+//};
+//std::vector<double> molecule::displacement_vector(std::vector<double> coord_1, std::vector<double> coord_2) {
+//	if(!check_coord_size(coord_1) || !check_coord_size(coord_2)) {
+//		coord_length_error_message();
+//		exit(1);	
+//	};
+//	std::vector<double> displacement = {coord_1[0] -coord_2[0], coord_1[1] - coord_2[1], coord_1[2] -coord_2[2]};
+//	return displacement;
+//};
 
-double molecule::calculate_angle(std::vector<double> coord_1, std::vector<double> coord_2, std::vector<double> coord_3) {
-	std::vector<double> vec_1 = displacement_vector(coord_1, coord_2);
-	std::vector<double> vec_2 = displacement_vector(coord_3, coord_2);
+double molecule::calculate_angle(Eigen::Vector3d coord_1, Eigen::Vector3d coord_2, Eigen::Vector3d coord_3) {
+	Eigen::Vector3d vec_1 = coord_1 - coord_2;
+	Eigen::Vector3d vec_2 = coord_3 - coord_2;
 	return calculate_vec_angle(vec_1, vec_2);	
 };
 
-double molecule::calculate_vec_angle(std::vector<double> vec_1, std::vector<double> vec_2) {
-	double numerator = dot_product(vec_1, vec_2);
+double molecule::calculate_vec_angle(Eigen::Vector3d vec_1, Eigen::Vector3d vec_2) {
+	double numerator = vec_1.dot(vec_2);
 	double denominator = vec_distance(vec_1)*vec_distance(vec_2);
 	double angle = acos(numerator/denominator);
 	return angle;
 };
 
-double molecule::vec_distance(std::vector<double> vec) {
-	return sqrt(dot_product(vec, vec));
+double molecule::vec_distance(Eigen::Vector3d vec) {
+	return sqrt(vec.dot(vec));
 };
 
-std::vector<double> molecule::vec_normalised(std::vector<double> vec) {
-	std::vector<double> n_vec;
-	double length = vec_distance(vec);
-	for(int i = 0; i < vec.size(); i++) {
-		n_vec.push_back(vec[i]/length);
-	};	
-	return n_vec;
-};
+//std::vector<double> molecule::vec_normalised(std::vector<double> vec) {
+//	std::vector<double> n_vec;
+//	double length = vec_distance(vec);
+//	for(int i = 0; i < vec.size(); i++) {
+//		n_vec.push_back(vec[i]/length);
+//	};	
+//	return n_vec;
+//};
 
-double molecule::calculate_dihedral_angle(std::vector<double> coord_1, std::vector<double> coord_2,
-	std::vector<double> coord_3, std::vector<double> coord_4) {
+double molecule::calculate_dihedral_angle(Eigen::Vector3d coord_1, Eigen::Vector3d coord_2,
+	Eigen::Vector3d coord_3, Eigen::Vector3d coord_4) {
 	/*	
 	std::vector<double> vec_1 = displacement_vector(coord_1, coord_2);
 	std::vector<double> vec_2 = displacement_vector(coord_3, coord_2);
@@ -578,17 +724,17 @@ double molecule::calculate_dihedral_angle(std::vector<double> coord_1, std::vect
 	
 	return atan2(y,x);
 	*/
-	std::vector<double> x1 = displacement_vector(coord_1, coord_2);
-	std::vector<double> z = displacement_vector(coord_2, coord_3);
-	std::vector<double> x2 = displacement_vector(coord_4, coord_3);
-	std::vector<double> first = cross_product(cross_product(z, x1), z);
-	std::vector<double> second = cross_product(cross_product(z, x2),z);
+	Eigen::Vector3d x1 = coord_1 - coord_2;
+	Eigen::Vector3d z = coord_2 - coord_3;
+	Eigen::Vector3d x2 = coord_4 - coord_3;
+	Eigen::Vector3d first = ( z.cross(x1) ).cross(z);
+	Eigen::Vector3d second = ( z.cross(x2) ).cross(z);
 	return calculate_vec_angle(first, second);	
 };
  
-double molecule::distance(std::vector<double> coord_1, std::vector<double> coord_2) {
-	std::vector<double> displacement_vec = displacement_vector(coord_1, coord_2);
-	return sqrt(dot_product(displacement_vec, displacement_vec));
+double molecule::distance(Eigen::Vector3d coord_1, Eigen::Vector3d coord_2) {
+	Eigen::Vector3d displacement_vec = coord_1 - coord_2;
+	return vec_distance(displacement_vec);
 };
 /*
 double molecule::bond_length_derivative(int atom_num, int second_atom_num, std::string axis) {
@@ -657,8 +803,8 @@ double molecule::derivative_value(double R_plus, double R_minus, double dq) {
 };
 */
 
-double molecule::coordinate_value(int second_atom_num, std::string axis) {
-	double q = (this -> get_atom_from_num(second_atom_num)).get_cart_coord()[axes_name_to_num(axis)];
+double molecule::coordinate_value(int type, int second_atom_num, std::string axis) {
+	double q = (this -> get_atom_from_num(second_atom_num)).get_cart_coord(type)[axes_name_to_num(axis)];
 	return q;
 };	
 
@@ -709,3 +855,7 @@ void molecule::coord_length_error_message() {
 	std::cerr << "Coordinates incorrect length" << std::endl;
 };
 
+
+void molecule::Z_coord_error() {
+	std::cerr << "The inputted Z matrix does not match what is stored in this molecule" << std::endl;
+};

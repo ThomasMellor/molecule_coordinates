@@ -3,30 +3,35 @@
 
 #include <string>
 #include <vector>
+#include "eigen-eigen-5a0156e40feb/Eigen/Dense"
 
 class atom {
 	private:	
 		const int number;
 		const std::string name;
-		std::vector<double> cart_coord = {0,0,0};
+		const double mass;
+		Eigen::Vector3d cart_coord = Eigen::Vector3d(0,0,0);
+		Eigen::Vector3d eq_coord = Eigen::Vector3d(0,0,0);
+
 		const int bond_length_atom;
 		const int angle_atom;
 		const int dihedral_angle_atom;
-		static int check_sign(int atom_num);
+		static double check_sign(double val);
 		static int check_value(int atom_num);
 	public:
-		atom(int num, std::string name);	
-		atom(int num, std::string name, int second_atom);
-		atom(int num, std::string name, int second_atom,
+		atom(int num, double m, std::string name);	
+		atom(int num, double m, std::string name, int second_atom);
+		atom(int num, double m, std::string name, int second_atom,
 			int third_atom);
-		atom(int num, std::string name, int second_atom,
+		atom(int num, double m, std::string name, int second_atom,
 			int third_atom, int fourth_atom);
 		 
 		std::string get_name() const; 
 		int get_number() const;
-		std::vector<double> get_cart_coord() const;
-		void set_cart_coord(double x, double y, double z); 
-		void update_cart_coord(double dx, double dy, double dz);
+		double get_mass() const;
+		Eigen::Vector3d get_cart_coord(int type) const;
+		void set_cart_coord(int type, double x, double y, double z); 
+		void update_cart_coord(int type, double dx, double dy, double dz);
 		int get_bond_length_atom() const;
 		int get_angle_atom() const;
 		int get_dihedral_angle_atom() const;	

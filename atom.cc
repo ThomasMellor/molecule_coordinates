@@ -2,17 +2,18 @@
 #include <limits>
 #include <iostream>
 
-atom::atom(int num, std::string nm) :  name(nm) , bond_length_atom(-1),
+atom::atom(int num, double m, std::string nm) :  name(nm) , mass(check_sign(m)), bond_length_atom(-1),
 	angle_atom(-1), dihedral_angle_atom(-1), number(check_sign(num)) {};
 
-atom::atom(int num, std::string nm, int second_atom) :  name(nm), number(check_sign(num)),
+atom::atom(int num, double m, std::string nm, int second_atom) :  name(nm), number(check_sign(num)), 
+	mass(check_sign(m)),
 	bond_length_atom(check_sign(second_atom)), angle_atom(-1), dihedral_angle_atom(-1) {};
 
-atom::atom(int num, std::string nm, int second_atom,int third_atom) :  name(nm), number(num),
+atom::atom(int num, double m, std::string nm, int second_atom,int third_atom) :  name(nm), number(num), mass(check_sign(m)),
 	bond_length_atom(check_sign(second_atom)), angle_atom(check_sign(third_atom)), dihedral_angle_atom(-1) {};
 		
-atom::atom(int num, std::string nm, int second_atom,
-	int third_atom, int fourth_atom) : name(nm), number(num),
+atom::atom(int num, double m, std::string nm, int second_atom,
+	int third_atom, int fourth_atom) : name(nm), number(num), mass(check_sign(m)), 
 	bond_length_atom(check_sign(second_atom)), angle_atom(check_sign(third_atom)),
    	dihedral_angle_atom(check_sign(fourth_atom)) {};		
 
@@ -24,19 +25,33 @@ int atom::get_number() const {
 	return number;
 };
 
-std::vector<double> atom::get_cart_coord() const {
-	return cart_coord;	
+double atom::get_mass() const {
+	return mass;
 };
 
-void atom::set_cart_coord(double x, double y, double z) {
+Eigen::Vector3d atom::get_cart_coord(int type) const {
+//	if(type==0) {
+		return eq_coord;
+//	} else {
+//	return cart_coord;	
+//	};
+};
+
+void atom::set_cart_coord(int type, double x, double y, double z) {
+	if(type==0) {
+		eq_coord = {x, y, z};
+	} else { 
 	cart_coord = {x, y, z};
+	};
 	return;
 };
 
-void atom::update_cart_coord(double dx, double dy, double dz) {
-	std::vector<double> update = {dx, dy, dz};
-	for(int i = 0; i < 3; i++) {
-		cart_coord[i] += update[i];
+void atom::update_cart_coord(int type, double dx, double dy, double dz) {
+	Eigen::Vector3d update(dx, dy, dz);
+	if(type==0) {	
+		eq_coord += update;
+	} else {
+		cart_coord += update;
 	};
 };
 
@@ -67,12 +82,12 @@ std::vector<int> atom::get_connected_atoms() const {
 	return atoms;
 };
 
-int atom::check_sign(int atom_num) {
-	if(atom_num < 0) {
-		std::cerr << "Atom number invalid" << std::endl;
+double atom::check_sign(double val) {
+	if(val < 0) {
+		std::cerr << "Invalid value" << std::endl;
 		exit(1);
 	} else {
-		return atom_num;
+		return val;
 	};
 };
 

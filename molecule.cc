@@ -316,11 +316,11 @@ void molecule::update_atom_coord(int atom_num, double dx, double dy, double dz) 
 	(this -> get_atom_from_num(atom_num)).update_cart_coord(dx, dy, dz);
 };
 
-std::vector<std::vector<double>> molecule::atom_and_connected_coord(std::vector<int> connected_atoms) {
-	std::vector<std::vector<double>> coordinates_of_atoms;
+std::vector<Eigen::Vector3d> molecule::atom_and_connected_coord(std::vector<int> connected_atoms) {
+	std::vector<Eigen::Vector3d> coordinates_of_atoms;
 	for(int i : connected_atoms) {
 		atom &current_atom = this -> get_atom_from_num(i);
-		std::vector<double> vec = current_atom.get_cart_coord();
+		EigenVector3d vec = current_atom.get_cart_coord();
 		coordinates_of_atoms.push_back(vec);
 	};
 	return coordinates_of_atoms;
@@ -338,7 +338,7 @@ double molecule::bond_length(int atom_num) {
 	*/
 	atom& first_atom = this -> get_atom_from_num(atom_num);
 	std::vector<int> connected_atoms = first_atom.get_connected_atoms();
-	std::vector<std::vector<double>> coordinates_of_atoms = atom_and_connected_coord(connected_atoms);
+	std::vector<Eigen::Vector3d> coordinates_of_atoms = atom_and_connected_coord(connected_atoms);
 	return distance(coordinates_of_atoms[0], coordinates_of_atoms[1]); 
 };
 
@@ -356,7 +356,7 @@ double molecule::angle(int atom_num) {
 	*/
 	atom& first_atom = this -> get_atom_from_num(atom_num);
 	std::vector<int> connected_atoms = first_atom.get_connected_atoms();
-	std::vector<std::vector<double>> coordinates_of_atoms = atom_and_connected_coord(connected_atoms);
+	std::vector<Eigen::Vector3d> coordinates_of_atoms = atom_and_connected_coord(connected_atoms);
 	return calculate_angle(coordinates_of_atoms[0], coordinates_of_atoms[1], coordinates_of_atoms[2]); 
 };
 
@@ -376,78 +376,76 @@ double molecule::dihedral_angle(int atom_num) {
 	*/
 	atom& first_atom = this -> get_atom_from_num(atom_num);
 	std::vector<int> connected_atoms = first_atom.get_connected_atoms();
-	std::vector<std::vector<double>> coordinates_of_atoms = atom_and_connected_coord(connected_atoms);
+	std::vector<Eigen::Vector3d> coordinates_of_atoms = atom_and_connected_coord(connected_atoms);
 	return calculate_dihedral_angle(coordinates_of_atoms[0], coordinates_of_atoms[1], coordinates_of_atoms[2],
 			coordinates_of_atoms[3]); 
 };
 
-double molecule::dot_product(std::vector<double> coord_1, std::vector<double> coord_2) {
-	if(!check_coord_size(coord_1) || !check_coord_size(coord_2)) {
-		coord_length_error_message();
-		exit(1);	
-	};	
-	return coord_1[0]*coord_2[0] + 
-		coord_1[1]*coord_2[1] + 
-		coord_1[2]*coord_2[2];
-};
+//double molecule::dot_product(std::vector<double> coord_1, std::vector<double> coord_2) {
+//	if(!check_coord_size(coord_1) || !check_coord_size(coord_2)) {
+//		coord_length_error_message();
+//		exit(1);	
+//	};	
+//	return coord_1[0]*coord_2[0] + 
+//		coord_1[1]*coord_2[1] + 
+//		coord_1[2]*coord_2[2];
+//};
 
-std::vector<double> molecule::cross_product(std::vector<double> coord_1, std::vector<double> coord_2) {
-	if(!check_coord_size(coord_1) || !check_coord_size(coord_2)) {
-		coord_length_error_message();
-		exit(1);	
-	}
-	std::vector<double> result = {coord_1[1]*coord_2[2] - coord_1[2]*coord_2[1], 
-		coord_1[2]*coord_2[0] - coord_1[0]*coord_2[2], coord_1[0]*coord_2[1] - coord_2[0]*coord_1[1]};
-	return result;
+//std::vector<double> molecule::cross_product(std::vector<double> coord_1, std::vector<double> coord_2) {
+//	if(!check_coord_size(coord_1) || !check_coord_size(coord_2)) {
+//		coord_length_error_message();
+//		exit(1);	
+//	}
+//	std::vector<double> result = {coord_1[1]*coord_2[2] - coord_1[2]*coord_2[1], 
+//		coord_1[2]*coord_2[0] - coord_1[0]*coord_2[2], coord_1[0]*coord_2[1] - coord_2[0]*coord_1[1]};
+//	return result;
 };
-std::vector<double> molecule::displacement_vector(std::vector<double> coord_1, std::vector<double> coord_2) {
-	if(!check_coord_size(coord_1) || !check_coord_size(coord_2)) {
-		coord_length_error_message();
-		exit(1);	
-	};
-	std::vector<double> displacement = {coord_1[0] -coord_2[0], coord_1[1] - coord_2[1], coord_1[2] -coord_2[2]};
-	return displacement;
-};
+//std::vector<double> molecule::displacement_vector(std::vector<double> coord_1, std::vector<double> coord_2) {
+//	if(!check_coord_size(coord_1) || !check_coord_size(coord_2)) {
+//		coord_length_error_message();
+//		exit(1);	
+//	};
+//	std::vector<double> displacement = {coord_1[0] -coord_2[0], coord_1[1] - coord_2[1], coord_1[2] -coord_2[2]};
+//	return displacement;
+//};
 
-double molecule::calculate_angle(std::vector<double> coord_1, std::vector<double> coord_2, std::vector<double> coord_3) {
-	std::vector<double> vec_1 = displacement_vector(coord_1, coord_2);
-	std::vector<double> vec_2 = displacement_vector(coord_3, coord_2);
+double molecule::calculate_angle(Eigen::Vector3d coord_1,Eigen::Vector3d coord_2, Eigen::Vector3d coord_3) {
+	Eigen::Vector3d vec_1 = coord_1 - coord_2;
+	Eigen::Vector3d vec_2 = coord_3 - coord_2	
+	
+	//std::vector<double> vec_1 = displacement_vector(coord_1, coord_2);
+	//std::vector<double> vec_2 = displacement_vector(coord_3, coord_2);
 	return calculate_vec_angle(vec_1, vec_2);	
 };
 
-double molecule::calculate_vec_angle(std::vector<double> vec_1, std::vector<double> vec_2) {
-	double numerator = dot_product(vec_1, vec_2);
+double molecule::calculate_vec_angle(EigenVector::3d vec_1, EigenVector::3d vec_2) {
+	double numerator = vec_1.dot(vec_2);
 	double denominator = vec_distance(vec_1)*vec_distance(vec_2);
 	double angle = acos(numerator/denominator);
 	return angle;
 };
 
-double molecule::vec_distance(std::vector<double> vec) {
+double molecule::vec_distance(Eigen::Vector3d vec) {
 	return sqrt(dot_product(vec, vec));
 };
 
-std::vector<double> molecule::vec_normalised(std::vector<double> vec) {
-	std::vector<double> n_vec;
-	double length = vec_distance(vec);
-	for(int i = 0; i < vec.size(); i++) {
-		n_vec.push_back(vec[i]/length);
-	};	
-	return n_vec;
+Eigen::Vector3d molecule::vec_normalised(Eigen::Vector3d vec) {
+	return vec/vec_distance(vec);
 };
 
-double molecule::calculate_dihedral_angle(std::vector<double> coord_1, std::vector<double> coord_2,
-	std::vector<double> coord_3, std::vector<double> coord_4) {
+double molecule::calculate_dihedral_angle(Eigen::Vector3d coord_1, Eigen::Vector3d coord_2,
+	Eigen::Vector3d coord_3, Eigen::Vector3d coord_4) {
 		
-	std::vector<double> vec_1 = displacement_vector(coord_1, coord_2);
-	std::vector<double> vec_2 = displacement_vector(coord_3, coord_2);
-	std::vector<double> vec_3 = displacement_vector(coord_4, coord_3);
+	Eigen::Vector3d vec_1 = coord_1 - coord_2 displacement_vector(coord_1, coord_2);
+	Eigen::Vector3d vec_2 = coord_3 - coord_2 displacement_vector(coord_3, coord_2);
+	Eigen::Vector3d vec_3 = coord_4 - coord_3 displacement_vector(coord_4, coord_3);
 
-	std::vector<double> new_vec_1 = vec_normalised(cross_product(vec_1, vec_2));
-	std::vector<double> new_vec_2 = vec_normalised(cross_product(vec_2, vec_3));
-	std::vector<double> new_vec_3 = vec_normalised(vec_2);
-	std::vector<double> new_vec_4 = cross_product(new_vec_1, new_vec_3);
+	Eigen::Vector3d new_vec_1 = vec_normalised(vec_1.cross(vec_2));
+	Eigen::Vector3d new_vec_2 = vec_normalised(vec_2.cross(vec_3));
+	Eigen::Vector3d new_vec_3 = vec_normalised(vec_2);
+	Eigen::Vector3d new_vec_4 = new_vec_1.cross(new_vec_3);
 
-	double x = dot_product(new_vec_1, new_vec_2), y = dot_product(new_vec_4, new_vec_2);
+	double x = new_vec_1.dot(new_vec_2), y = new_vec_4.dot(new_vec_2);
 	
 	return atan2(y,x);
 };
