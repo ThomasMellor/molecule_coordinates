@@ -307,6 +307,37 @@ void molecule::update_molecule_coord(const Eigen::VectorXd& vec) {
 	return;  
 };
 
+void molecule::set_L_matrix(std::string L_matrix_file) {
+	std::ifstream stream(L_matrix_file);
+	if(!stream) {
+		std::cerr << "Error opening file " + L_matrix_file << std::endl;
+		exit(1);
+	};
+	std::string line;
+	std::string word
+	while(!getline(L_matrix_file, line) {
+		std::istringstream iss_1(line)
+		iss_1 >> word;
+		if(word != "Displacement") {
+			continue;
+		} else {
+			break;
+		};
+	};
+	while(!getline(L_matrix_file, line) {
+		if(line.length() != 0) {
+			continue
+		} else {
+			break; 
+		};
+	};
+	double frequency;
+	std::istringstream iss_2(line);
+	while(iss_2 >> frequency) {
+		
+	};	
+		
+};
 
 void molecule::set_atom_coord(int atom_num, double x, double y, double z) {
 	(this -> get_atom_from_num(atom_num)).set_cart_coord(x, y, z);
@@ -571,4 +602,5 @@ void molecule::file_error_message() {
 void molecule::coord_length_error_message() {
 	std::cerr << "Coordinates incorrect length" << std::endl;
 };
+
 

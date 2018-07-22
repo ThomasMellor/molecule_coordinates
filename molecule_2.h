@@ -12,7 +12,11 @@ class molecule {
 		std::string const name;
 		atom& get_atom_from_num(unsigned int n);
 		
-		static void file_error_message();
+		std::vector<double> frequencies;
+		Eigen::MatrixXd L_mat;
+		Eigen::MatrixXd M_mat;
+		
+		static void file_error_message(std::string file);
 		static void coord_length_error_message();
 
 		//static double dot_product(Eigen::Vector3d coords_1, Eigen::Vector3d coords_2);
@@ -51,14 +55,18 @@ class molecule {
 		Eigen::VectorXd& derivative_vector(Eigen::VectorXd& vec, std::vector<std::vector<double>> try_coord);
 		Eigen::VectorXd empty_vector();
 		static void Z_coord_error(); 		
+		Eigen::VectorXd normal_coordinates(); 
+
 
 		double coord_difference(std::vector<std::vector<double>> try_coord);
 		void move_to_COM(int type);
+		Eigen::Vector3d centre_of_mass(int type); 
 	public:
 		void print_coordinates(int type);
 		void print_cart_coords(int type);
 		int get_num_atoms() const;
 		molecule(std::string z_matrix_file, std::string molecule_name);	
+		void set_L_matrix(std::string L_matrix_file);
 		double bond_length(int type, int atom_num);
 		double angle(int type, int atom_num);
 		double dihedral_angle(int type, int atom_num);

@@ -30,11 +30,11 @@ double atom::get_mass() const {
 };
 
 Eigen::Vector3d atom::get_cart_coord(int type) const {
-//	if(type==0) {
+	if(type==0) {
 		return eq_coord;
-//	} else {
-//	return cart_coord;	
-//	};
+	} else {
+		return cart_coord;	
+	};
 };
 
 void atom::set_cart_coord(int type, double x, double y, double z) {

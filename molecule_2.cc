@@ -37,9 +37,7 @@ Eigen::MatrixXd molecule::Tmat(const Eigen::MatrixXd& A, const Eigen::MatrixXd& 
 	Eigen::Vector3d vec_1 = es.eigenvectors().col(0).real();  
 	
 	vec_1 = vec_1/sqrt(vec_1.dot(vec_1));
-	//vec_normalised(vec_1);	
 	Eigen::Vector3d vec_2 = es.eigenvectors().col(1).real();
-	//vec_normalised(vec_2);
 	vec_2 = vec_2/sqrt(vec_2.dot(vec_2));
 	Eigen::Vector3d vec_3 = vec_1.cross(vec_2);
 	//vec_normalised(vec_3); 
@@ -62,7 +60,7 @@ Eigen::MatrixXd molecule::Tmat(const Eigen::MatrixXd& A, const Eigen::MatrixXd& 
 	for(int i = 0; i < 3; i++) {
 		for(int j = 0; j < 3; j++) {
 			for(int k = 0; k < 3; k++) {
-				T(i, j) += first_set[k][i]*second_set[k][j];
+				T(i, j) += first_set[k](i)*second_set[k](j);
 			};	
 		};
 	};
@@ -224,9 +222,24 @@ void molecule::print_coords(std::vector<double> coords) {
 		std::cout << i << " ";
 	};
 	std::cout << ")" << std::endl;
-};	
+};
+
+Eigen::VectorXd molecule::normal_coordinates() {
+	Eigen::VectorXd normal(num_atoms*3);
+	for(int i = 0; i < num_atoms; i++) {
+		atom& cur_atom = get_atom_from_num(i+1);
+		Eigen::Vector3d atom_displacement = cur_atom.get_cart_coord(1) - cur_atom.get_cart_coord(0);
+		for(int j = 0; j < 3; j++) {
+			normal(i*3 + j) = atom_displacement(j);	
+		};
+	};
+	normal = L_mat*normal;
+	return normal; 	
+};
+
 
 molecule::molecule(std::string z_matrix_file, std::string molecule_name) : name(molecule_name) {
+	std::vector<double> masses;
 	std::ifstream stream(z_matrix_file);
 	if(!stream) {
 		std::cerr << "Error opening file " + z_matrix_file << std::endl;
@@ -235,7 +248,7 @@ molecule::molecule(std::string z_matrix_file, std::string molecule_name) : name(
 	std::string line;
 
 	if(!getline(stream, line)){
-		file_error_message();
+		file_error_message(z_matrix_file);
 		exit(1);	
 	};
 	std::istringstream iss_1(line);
@@ -243,110 +256,170 @@ molecule::molecule(std::string z_matrix_file, std::string molecule_name) : name(
 	double mass;
 	int number_of_atoms = 0;
 	if(!(iss_1 >> atom_name)){
-		file_error_message();
+		file_error_message(z_matrix_file);
 		exit(1);
 	};
 	if(!(iss_1 >> mass)) {
-		file_error_message();
+		file_error_message(z_matrix_file);
 		exit(1);
 	};
 	number_of_atoms++;
 	atoms.push_back(atom(number_of_atoms, mass, atom_name));
+	masses.insert(masses.end(), 3, mass);
 
 	if(!getline(stream, line)) {
-		file_error_message();
+		file_error_message(z_matrix_file);
 		exit(1);
 	};
 	std::istringstream iss_2(line);
 	if(!(iss_2 >> atom_name)){
-		file_error_message();
+		file_error_message(z_matrix_file);
 		exit(1);
 	};
 	if(!(iss_2 >> mass)) {
-		file_error_message();
+		file_error_message(z_matrix_file);
 		exit(1);
 	}
 	int num_bond_atom = 0;
 	if(!(iss_2 >> num_bond_atom)){
-		file_error_message();
+		file_error_message(z_matrix_file);
 		exit(1);
 	};
 	if(num_bond_atom > number_of_atoms) {
-		file_error_message();
+		file_error_message(z_matrix_file);
 		exit(1);
 	};
 	number_of_atoms++;
 	atom second_atom(number_of_atoms, mass,  atom_name, num_bond_atom);
 	atoms.push_back(second_atom);
+	
+	masses.insert(masses.end(), 3, mass);
 
 	if(!getline(stream, line)) {
 		return;
 	};
 	std::istringstream iss_3(line);
 	if(!(iss_3 >> atom_name)){
-		file_error_message();
+		file_error_message(z_matrix_file);
 		exit(1);
 	};
 	if(!(iss_3 >> mass)) {
-		file_error_message();
+		file_error_message(z_matrix_file);
 		exit(1);
 	}
 	if(!(iss_3 >> num_bond_atom)){
-		file_error_message();
+		file_error_message(z_matrix_file);
 		exit(1);
 	};
 	if(num_bond_atom > number_of_atoms) {
-		file_error_message();
+		file_error_message(z_matrix_file);
 		exit(1);
 	};
 	int num_angle_atom = 0;
 	if(!(iss_3 >> num_angle_atom)){
-		file_error_message();
+		file_error_message(z_matrix_file);
 		exit(1);
 	};
 	if(num_angle_atom > number_of_atoms) {
-		file_error_message();
+		file_error_message(z_matrix_file);
 		exit(1);
 	};
 	number_of_atoms++;
 	atom third_atom(number_of_atoms, mass, atom_name, num_bond_atom, num_angle_atom);
 	atoms.push_back(third_atom);
+	masses.insert(masses.end(), 3, mass);
+
 	while(getline(stream, line)) {
 		std::istringstream iss_4(line);
 		if(!(iss_4 >> atom_name)){
-			file_error_message();
+			file_error_message(z_matrix_file);
 			exit(1);
 		};
 		if(!(iss_4 >> mass)) {
-			file_error_message();
+			file_error_message(z_matrix_file);
 			exit(1);
 		}
 		if(!(iss_4 >> num_bond_atom)){
-			file_error_message();
+			file_error_message(z_matrix_file);
 			exit(1);
 		};
 		if(num_bond_atom > number_of_atoms) {
-			file_error_message();
+			file_error_message(z_matrix_file);
 			exit(1);
 		};
 		if(!(iss_4 >> num_angle_atom)){
-			file_error_message();
+			file_error_message(z_matrix_file);
 			exit(1);
 		};
 		if(num_angle_atom > number_of_atoms) {
-			file_error_message();
+			file_error_message(z_matrix_file);
 			exit(1);
 		};	
 		int num_dihedral_atom;
 		if(!(iss_4 >> num_dihedral_atom)){
-			file_error_message();
+			file_error_message(z_matrix_file);
 			exit(1);
 		};
 		number_of_atoms++;
 		atom remaining_atom(number_of_atoms, mass, atom_name, num_bond_atom, num_angle_atom, num_dihedral_atom);
-		atoms.push_back(remaining_atom);		
+		atoms.push_back(remaining_atom);
+		masses.insert(masses.end(), 3, mass);	
 	};
 	num_atoms = number_of_atoms;
+	M_mat.resize(num_atoms*3, num_atoms*3); 
+	for(int i = 0; i < num_atoms*3; i++) {
+		M_mat(i,i) = masses[i];  
+	};
+	return;
+};
+
+void molecule::set_L_matrix(std::string L_matrix_file) {
+	std::ifstream stream(L_matrix_file);
+	if(!stream) {
+		std::cerr << "Error opening file " + L_matrix_file << std::endl;
+		exit(1);
+	};
+	std::string line;
+	std::string word;
+	while(getline(stream, line)) {
+		std::istringstream iss_1(line);
+		iss_1 >> word;
+		if(word != "Displacement") {
+			continue;
+		} else {
+			break;
+		};
+	};
+	while(getline(stream , line)) {
+		if(line.length() == 0) {
+			continue;
+		} else {
+			break; 
+		};
+	};
+	double frequency;
+	std::istringstream iss_2(line);
+	while(iss_2 >> frequency) {
+		frequencies.push_back(frequency);					
+	};
+	std::cout << line << std::endl;
+	getline(stream , line);
+	getline(stream , line);
+	double component;
+	L_mat.resize(num_atoms*3, num_atoms*3);
+
+	for(int i = 0; i < num_atoms*3; i++) {
+		getline(stream, line);
+		int j = 0;
+		std::istringstream iss_3(line);
+		while(iss_3 >> component) {
+			L_mat(i,j) = component;
+			j++;
+		};	
+	}; 
+
+	L_mat = M_mat*L_mat;	
+	return; 	
 };
 
 void molecule::print_coordinates(int type) {
@@ -404,10 +477,21 @@ void molecule::set_molecule_coord(int type, std::string coord_file) {
 			exit(1);
 		};
 		double x, y, z;
-		iss >> x; iss >> y; iss >> z;
+		if(!(iss >> x)) {
+			file_error_message(coord_file);
+			exit(0);		
+		} 
+		if(!(iss >> y)) {
+			file_error_message(coord_file);
+			exit(0);
+		};	
+		if(!(iss >> z)) {
+			file_error_message(coord_file);
+			exit(0);
+		};	
 		this -> set_atom_coord(type, atom_counter, x, y, z);
 	};
-	move_to_COM(type);
+//	move_to_COM(type);
 	return;
 };
 
@@ -434,7 +518,7 @@ void molecule::set_molecule_coord_Z(int type, std::string coord_file) {
 		std::istringstream iss(line);
 		std::string name;
 		if(!(iss >> name)){
-			file_error_message();
+			file_error_message(coord_file);
 			exit(1);
 		};
 		if((this -> get_atom_from_num(atom_counter)).get_name() != name) {
@@ -447,11 +531,11 @@ void molecule::set_molecule_coord_Z(int type, std::string coord_file) {
 			cur_atom.set_cart_coord(type, 0, 0, 0);
 		} else if(atom_counter == 2) {
 			if(!(iss >> bond_atom)){
-				file_error_message();
+				file_error_message(coord_file);
 				exit(1);
 			};
 			if(!(iss >> r)){
-				file_error_message();
+				file_error_message(coord_file);
 				exit(1);
 			};
 	
@@ -465,65 +549,67 @@ void molecule::set_molecule_coord_Z(int type, std::string coord_file) {
 		} else if(atom_counter == 3) {
 			
 			if(!(iss >> bond_atom)){
-				file_error_message();
+				file_error_message(coord_file);
 				exit(1);
 			};
 			if(!(iss >> r)){
-				file_error_message();
+				file_error_message(coord_file);
 				exit(1);
 			};
 			if(!(iss >> angle_atom)){
-				file_error_message();
+				file_error_message(coord_file);
 				exit(1);
 			};
 			if(!(iss >> angle)){
-				file_error_message();
+				file_error_message(coord_file);
 				exit(1);
 			};
-			
-			if( (cur_atom.get_bond_length_atom() != bond_atom) && 
+				
+			if( (cur_atom.get_bond_length_atom() != bond_atom) or 
 			(cur_atom.get_angle_atom() != angle_atom) ) {
 				Z_coord_error();
 				exit(1); 
 			};
 
-			int pm = 3  - 2*bond_atom;
+			int pm = 3 - 2*bond_atom;
 			Eigen::Vector3d bond_coords = get_atom_coord(type, bond_atom);
 			cur_atom.set_cart_coord(type, 0, r*sin(angle), bond_coords[2] + r*pm*cos(angle));
 		
 		} else if(atom_counter > 3) {
 			if(!(iss >> bond_atom)){
-				file_error_message();
+				file_error_message(coord_file);
 				exit(1);
 			};
 			if(!(iss >> r)){
-				file_error_message();
+				file_error_message(coord_file);
 				exit(1);
 			};
 			if(!(iss >> angle_atom)){
-				file_error_message();
+				file_error_message(coord_file);
 				exit(1);
 			};
 			if(!(iss >> angle)){
-				file_error_message();
+				file_error_message(coord_file);
 				exit(1);
 			};
 			if(!(iss >> di_angle_atom)){
-				file_error_message();
+				file_error_message(coord_file);
 				exit(1);
 			};
 			if(!(iss >> di_angle)){
-				file_error_message();
+				file_error_message(coord_file);
 				exit(1);
 			};
 	
-			if( (cur_atom.get_bond_length_atom() != bond_atom) && 
-			(cur_atom.get_angle_atom() != angle_atom) && 
+			if( (cur_atom.get_bond_length_atom() != bond_atom) or  
+			(cur_atom.get_angle_atom() != angle_atom) or 
 		    (cur_atom.get_dihedral_angle_atom() != di_angle_atom) ){
 				Z_coord_error();
 				exit(1); 
 			};
-		
+	
+			angle = M_PI - angle;
+
 			Eigen::Vector3d angle_vec = get_atom_coord(type, angle_atom);
 			Eigen::Vector3d z_axis =  get_atom_coord(type, bond_atom) - angle_vec;
 			z_axis = z_axis/sqrt(z_axis.dot(z_axis));
@@ -534,17 +620,17 @@ void molecule::set_molecule_coord_Z(int type, std::string coord_file) {
 			Eigen::Vector3d added_vec = {0,0,0};
 				added_vec = r*(x_axis*sin(angle)*cos(di_angle) 
 						+ y_axis*sin(angle)*sin(di_angle)
-						- z_axis*cos(angle));
+						+ z_axis*cos(angle));
 			cur_atom.set_cart_coord(type, bond_coords[0] + added_vec[0], bond_coords[1] + added_vec[1], 
 				bond_coords[2] + added_vec[2]);	
 		};
 	};
-	move_to_COM(type);
+//	move_to_COM(type);
 	return;
 
 };
 
-void molecule::move_to_COM(int type) {
+Eigen::Vector3d molecule::centre_of_mass(int type) {
 	Eigen::Vector3d com = {0,0,0};
 	double total_mass; 
 	for(int i = 1; i <= num_atoms; i++) {
@@ -555,9 +641,15 @@ void molecule::move_to_COM(int type) {
 		total_mass += cur_mass;
 	};		
 	com  = com/total_mass;
+	return com; 
+};
+
+void molecule::move_to_COM(int type) {
+	Eigen::Vector3d com = centre_of_mass(type);
 	for(int i = 1; i <= num_atoms; i++) {
 		update_atom_coord(type, i, -com[0], -com[1], -com[2]);
 	};
+	return; 
 };
 
 void molecule::update_molecule_coord(const Eigen::VectorXd& vec) {
@@ -724,12 +816,26 @@ double molecule::calculate_dihedral_angle(Eigen::Vector3d coord_1, Eigen::Vector
 	
 	return atan2(y,x);
 	*/
-	Eigen::Vector3d x1 = coord_1 - coord_2;
+	Eigen::Vector3d vec_1 = coord_1 - coord_2;
 	Eigen::Vector3d z = coord_2 - coord_3;
-	Eigen::Vector3d x2 = coord_4 - coord_3;
-	Eigen::Vector3d first = ( z.cross(x1) ).cross(z);
-	Eigen::Vector3d second = ( z.cross(x2) ).cross(z);
-	return calculate_vec_angle(first, second);	
+	z = z/sqrt(z.dot(z));
+	Eigen::Vector3d vec_2 = coord_4 - coord_3;
+	Eigen::Vector3d x_1 = (z.cross(vec_1)).cross(z);
+	x_1 = x_1/sqrt(x_1.dot(x_1));
+
+	Eigen::Vector3d y = z.cross(vec_2);
+	y = y/sqrt(y.dot(y));
+	Eigen::Vector3d x_2 = y.cross(z);
+	x_2 = x_2/sqrt(x_2.dot(x_2)); 
+
+	double x_component = x_1.dot(x_2);
+	double y_component = x_1.dot(y);
+	
+	double angle = atan2(y_component, x_component);
+	if(angle < 0) {
+		angle += 2*M_PI;
+	};
+	return angle;	
 };
  
 double molecule::distance(Eigen::Vector3d coord_1, Eigen::Vector3d coord_2) {
@@ -847,8 +953,8 @@ bool molecule::check_coord_size(std::vector<double> coord) {
 	};
 };
 
-void molecule::file_error_message() {
-	std::cerr << "File contains an error" << std::endl;	
+void molecule::file_error_message(std::string file) {
+	std::cerr << "File " << file << " contains an error" << std::endl;	
 };
 
 void molecule::coord_length_error_message() {

@@ -10,8 +10,13 @@ class molecule {
 		int num_atoms = 0;
 		std::vector<atom> atoms;
 		std::string const name;
+		Eigen::Vector3d frequencies;
+		Eigen::MatrixXd L_mat;
+
 		atom& get_atom_from_num(unsigned int n);
-		
+	
+
+
 		static void file_error_message();
 		static void coord_length_error_message();
 		//static double dot_product(std::vector<double> coords_1, std::vector<double> coords_2);
