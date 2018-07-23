@@ -6,19 +6,20 @@
 int main() {
 	molecule mol("./test.txt", "CH4");
 	mol.set_molecule_coord(0,"./test_coords_1.txt");	
- 	mol.set_molecule_coord_Z(1,"./test_coords_2.txt");
-
+ 	mol.set_molecule_coord(1,"./test_coords_2.txt");
+	
 		mol.set_L_matrix("glyoxal_d2.pot");
-
 //	std::cout << mol.get_atom_from_num(4).get_dihedral_angle_atom();	
 //	std::cout << " hello " << mol.L_mat << std::endl;
-//	std::cout << "yo" << mol.M_mat << std::endl;
-
+//	std::cout << mol.centre_of_mass(1) << std::endl;
+//	std::cout << mol.centre_of_mass(0) << std::endl;
+	
 //	mol.print_cart_coords(0);
-	mol.print_coordinates(1);
+//	mol.print_cart_coords(1);
+//	std::cout << std::endl;
 
-	//mol.print_cart_coords(1);
-	//mol.print_coordinates(1);
+//	mol.print_cart_coords(1);
+//	mol.print_coordinates(1);
 //	std::cout << "com " << mol.centre_of_mass(0) << std::endl; 	
 //	std::cout << "com 2 " << mol.centre_of_mass(1) << std::endl;
 	Eigen::MatrixXd A = mol.Amat();

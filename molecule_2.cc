@@ -11,7 +11,7 @@
 typedef int (atom::*coord_func)() const;
 
 Eigen::MatrixXd molecule::Amat() {
-	Eigen::MatrixXd A = Eigen::MatrixXd(3,3);
+	Eigen::MatrixXd A = Eigen::MatrixXd::Zero(3,3);
 	for(int i = 1; i <= num_atoms; i++) {
 		atom& cur_atom = get_atom_from_num(i);
 		double mass = cur_atom.get_mass();
@@ -23,6 +23,7 @@ Eigen::MatrixXd molecule::Amat() {
 			};
 		};
 	};
+	std::cout << A << std::endl;
 	return A;
 };
 
@@ -35,28 +36,23 @@ Eigen::MatrixXd molecule::Tmat(const Eigen::MatrixXd& A, const Eigen::MatrixXd& 
 	es.compute(ATA, true);
 
 	Eigen::Vector3d vec_1 = es.eigenvectors().col(0).real();  
-	
 	vec_1 = vec_1/sqrt(vec_1.dot(vec_1));
 	Eigen::Vector3d vec_2 = es.eigenvectors().col(1).real();
 	vec_2 = vec_2/sqrt(vec_2.dot(vec_2));
 	Eigen::Vector3d vec_3 = vec_1.cross(vec_2);
-	//vec_normalised(vec_3); 
 	vec_3 = vec_3/sqrt(vec_3.dot(vec_3));
 	std::vector<Eigen::Vector3d> first_set = {vec_1, vec_2, vec_3};
 
 	Eigen::Vector3d wec_1 = A*vec_1;
-	//vec_normalised(wec_1);
 	wec_1 = wec_1/sqrt(wec_1.dot(wec_1));
 	Eigen::Vector3d wec_2 = A*vec_2;
-	//vec_normalised(wec_2);
 	wec_2 = wec_2/sqrt(wec_2.dot(wec_2));
 	Eigen::Vector3d wec_3 = wec_1.cross(wec_2);
-	//vec_normalised(wec_3);
 	wec_3 = wec_3/sqrt(wec_3.dot(wec_3));
 
 	std::vector<Eigen::Vector3d> second_set = {wec_1, wec_2, wec_3}; 
 	
-	Eigen::MatrixXd T = Eigen::MatrixXd(3,3);
+	Eigen::MatrixXd T = Eigen::MatrixXd::Zero(3,3);
 	for(int i = 0; i < 3; i++) {
 		for(int j = 0; j < 3; j++) {
 			for(int k = 0; k < 3; k++) {
@@ -233,8 +229,7 @@ Eigen::VectorXd molecule::normal_coordinates() {
 			normal(i*3 + j) = atom_displacement(j);	
 		};
 	};
-	normal = L_mat*normal;
-	return normal; 	
+	return L_mat.transpose()*M_mat*normal;
 };
 
 
@@ -265,7 +260,7 @@ molecule::molecule(std::string z_matrix_file, std::string molecule_name) : name(
 	};
 	number_of_atoms++;
 	atoms.push_back(atom(number_of_atoms, mass, atom_name));
-	masses.insert(masses.end(), 3, mass);
+	masses.insert(masses.end(), 3, sqrt(mass));
 
 	if(!getline(stream, line)) {
 		file_error_message(z_matrix_file);
@@ -293,7 +288,7 @@ molecule::molecule(std::string z_matrix_file, std::string molecule_name) : name(
 	atom second_atom(number_of_atoms, mass,  atom_name, num_bond_atom);
 	atoms.push_back(second_atom);
 	
-	masses.insert(masses.end(), 3, mass);
+	masses.insert(masses.end(), 3, sqrt(mass));
 
 	if(!getline(stream, line)) {
 		return;
@@ -327,7 +322,7 @@ molecule::molecule(std::string z_matrix_file, std::string molecule_name) : name(
 	number_of_atoms++;
 	atom third_atom(number_of_atoms, mass, atom_name, num_bond_atom, num_angle_atom);
 	atoms.push_back(third_atom);
-	masses.insert(masses.end(), 3, mass);
+	masses.insert(masses.end(), 3, sqrt(mass));
 
 	while(getline(stream, line)) {
 		std::istringstream iss_4(line);
@@ -363,10 +358,11 @@ molecule::molecule(std::string z_matrix_file, std::string molecule_name) : name(
 		number_of_atoms++;
 		atom remaining_atom(number_of_atoms, mass, atom_name, num_bond_atom, num_angle_atom, num_dihedral_atom);
 		atoms.push_back(remaining_atom);
-		masses.insert(masses.end(), 3, mass);	
+		masses.insert(masses.end(), 3, sqrt(mass));	
 	};
 	num_atoms = number_of_atoms;
 	M_mat.resize(num_atoms*3, num_atoms*3); 
+	M_mat = Eigen::MatrixXd::Zero(num_atoms*3, num_atoms*3);
 	for(int i = 0; i < num_atoms*3; i++) {
 		M_mat(i,i) = masses[i];  
 	};
@@ -406,8 +402,7 @@ void molecule::set_L_matrix(std::string L_matrix_file) {
 	getline(stream , line);
 	getline(stream , line);
 	double component;
-	L_mat.resize(num_atoms*3, num_atoms*3);
-
+	L_mat = Eigen::MatrixXd::Zero(num_atoms*3, num_atoms*3 - 6);
 	for(int i = 0; i < num_atoms*3; i++) {
 		getline(stream, line);
 		int j = 0;
@@ -491,7 +486,7 @@ void molecule::set_molecule_coord(int type, std::string coord_file) {
 		};	
 		this -> set_atom_coord(type, atom_counter, x, y, z);
 	};
-//	move_to_COM(type);
+	move_to_COM(type);
 	return;
 };
 
@@ -625,7 +620,7 @@ void molecule::set_molecule_coord_Z(int type, std::string coord_file) {
 				bond_coords[2] + added_vec[2]);	
 		};
 	};
-//	move_to_COM(type);
+	move_to_COM(type);
 	return;
 
 };
