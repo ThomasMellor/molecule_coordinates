@@ -23,7 +23,6 @@ Eigen::MatrixXd molecule::Amat() {
 			};
 		};
 	};
-	std::cout << A << std::endl;
 	return A;
 };
 
@@ -398,7 +397,6 @@ void molecule::set_L_matrix(std::string L_matrix_file) {
 	while(iss_2 >> frequency) {
 		frequencies.push_back(frequency);					
 	};
-	std::cout << line << std::endl;
 	getline(stream , line);
 	getline(stream , line);
 	double component;
@@ -448,8 +446,9 @@ void molecule::print_coordinates(int type) {
 
 void molecule::print_cart_coords(int type) {
 	for(int i = 1; i <= num_atoms; i++) {
-		Eigen::Vector3d coords = get_atom_coord(type, i);
-		std::cout << coords.transpose()	<< std::endl;
+		atom& cur_atom = get_atom_from_num(i); 
+		Eigen::Vector3d coords = cur_atom.get_cart_coord(type); 
+		std::cout << cur_atom.get_name() << coords.transpose()	<< std::endl;
 	};
 	return;
 };
