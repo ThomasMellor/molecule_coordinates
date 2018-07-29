@@ -5,9 +5,31 @@
 #include <vector>
 #include <string> 
 #include "eigen-eigen-5a0156e40feb/Eigen/Dense"
+
 class molecule {
+
+	class coefficient {
+		public:
+			int modes;
+			int order;
+			int dimension;
+			std::vector<std::vector<double>> coeffs; 
+		public:
+			int get_modes();
+			int get_order();
+			coefficient(int num_modes, int num_order, int num_dimension);
+			coefficient(); 
+			void set_coefficient_2D(int mode_1, int mode_2, int order_1, int order_2, int val);
+			double get_coefficient_2D(int mode_1, int mode_2, int order_1, int order_2);
+			void set_coefficient_1D(int mode, int order, double val); 
+			double get_coefficient_1D(int mode, int order);
+			void print_coefficients(); 
+	};
+
 	public:
 		int num_atoms = 0;
+		bool coefficients_set = false;
+		bool L_matrix_set = false;
 		std::vector<atom> atoms;
 		std::string const name;
 		atom& get_atom_from_num(unsigned int n);
@@ -15,7 +37,9 @@ class molecule {
 		std::vector<double> frequencies;
 		Eigen::MatrixXd L_mat;
 		Eigen::MatrixXd M_mat;
-		
+		molecule::coefficient coeffs_1D;
+		molecule::coefficient coeffs_2D;
+
 		static void file_error_message(std::string file);
 		static void coord_length_error_message();
 
@@ -44,7 +68,7 @@ class molecule {
 	
 		Eigen::MatrixXd empty_matrix();	
 		Eigen::MatrixXd Amat();
-		static Eigen::MatrixXd Tmat(const Eigen::MatrixXd& A, const Eigen::MatrixXd& ATA);
+		static Eigen::MatrixXd Tmat(const Eigen::MatrixXd& A);
 		static Eigen::MatrixXd ATAmat(const Eigen::MatrixXd& A);
 		void rotate_coords(const Eigen::MatrixXd& T);
 		Eigen::Vector3d Eckart_cond();
@@ -67,6 +91,7 @@ class molecule {
 		int get_num_atoms() const;
 		molecule(std::string z_matrix_file, std::string molecule_name);	
 		void set_L_matrix(std::string L_matrix_file);
+		void set_coefficients(std::string coefficient_file);
 		double bond_length(int type, int atom_num);
 		double angle(int type, int atom_num);
 		double dihedral_angle(int type, int atom_num);
@@ -76,5 +101,7 @@ class molecule {
 		void set_molecule_coord(int type, std::string coord_file);
 		void set_molecule_coord_Z(int type, std::string coord_file);
 		void update_molecule_coord(const Eigen::VectorXd& vec);
+		void print_coefficients_1D(); 
+		double energy(); 
 };
 #endif

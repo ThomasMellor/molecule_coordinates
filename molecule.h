@@ -6,6 +6,20 @@
 #include <string> 
 #include "eigen-eigen-5a0156e40feb/Eigen/Dense"
 class molecule {
+	class coefficient {
+		private:
+			int modes;
+			int order;
+			int dimension;
+			std::vector<std::vector<double>> coeffs; 
+		public:
+			coefficient(int num_modes, int num_order, int num_dimension);
+			void set_coefficient_2D(int mode_1, int mode_2, int order_1, int order_2);
+			double get_coefficient_2D(int mode_1, int mode_2, int order_1, int order_2);
+			void set_coefficient_1D(int mode, int order); 
+			double get_coefficient_1D(int mode, int order);
+	};
+
 	private:
 		int num_atoms = 0;
 		std::vector<atom> atoms;

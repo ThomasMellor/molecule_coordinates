@@ -8,332 +8,346 @@
 
 
 
-typedef int (atom::*coord_func)() const;
+	typedef int (atom::*coord_func)() const;
 
-Eigen::MatrixXd molecule::Amat() {
-	Eigen::MatrixXd A = Eigen::MatrixXd::Zero(3,3);
-	for(int i = 1; i <= num_atoms; i++) {
-		atom& cur_atom = get_atom_from_num(i);
-		double mass = cur_atom.get_mass();
-		Eigen::Vector3d coord = cur_atom.get_cart_coord(1);
-		Eigen::Vector3d eq_coord = cur_atom.get_cart_coord(0);
-		for(int j = 0; j < coord.size(); j++) {
-			for(int k = 0; k < coord.size(); k++) {
-				A(j,k) += mass*coord(j)*eq_coord(k);
-			};
+	molecule::coefficient::coefficient(int num_modes, int num_order, int num_dimension) : modes(num_modes), 
+	order(num_order), dimension(num_dimension), coeffs(pow(num_modes, num_dimension), std::vector<double>(pow(num_order,num_dimension))) {}; 
+
+	molecule::coefficient::coefficient() {};
+
+	void molecule::coefficient::set_coefficient_2D(int mode_1, int mode_2, int order_1, int order_2, int val) {
+		coeffs[mode_1*modes+ mode_2][order_1*order+ order_2] = val;	
 		};
+	double molecule::coefficient::get_coefficient_2D(int mode_1, int mode_2, int order_1, int order_2){ 
+		return coeffs[mode_1*modes + mode_2][order_1*order + order_2];
 	};
-	return A;
-};
+	void molecule::coefficient::set_coefficient_1D(int mode, int order, double val) {
+		coeffs[mode][order] = val;
+	};
+	double molecule::coefficient::get_coefficient_1D(int mode, int order) {
+		return coeffs[mode][order]; 
+	};
 
-Eigen::MatrixXd molecule::ATAmat(const Eigen::MatrixXd& A) {
-	return A.transpose()*A;
-};
+	void molecule::print_coefficients_1D() {
+		coeffs_1D.print_coefficients();
+	};
 
-Eigen::MatrixXd molecule::Tmat(const Eigen::MatrixXd& A, const Eigen::MatrixXd& ATA) {
-	Eigen::EigenSolver<Eigen::MatrixXd> es;
-	es.compute(ATA, true);
-
-	Eigen::Vector3d vec_1 = es.eigenvectors().col(0).real();  
-	vec_1 = vec_1/sqrt(vec_1.dot(vec_1));
-	Eigen::Vector3d vec_2 = es.eigenvectors().col(1).real();
-	vec_2 = vec_2/sqrt(vec_2.dot(vec_2));
-	Eigen::Vector3d vec_3 = vec_1.cross(vec_2);
-	vec_3 = vec_3/sqrt(vec_3.dot(vec_3));
-	std::vector<Eigen::Vector3d> first_set = {vec_1, vec_2, vec_3};
-
-	Eigen::Vector3d wec_1 = A*vec_1;
-	wec_1 = wec_1/sqrt(wec_1.dot(wec_1));
-	Eigen::Vector3d wec_2 = A*vec_2;
-	wec_2 = wec_2/sqrt(wec_2.dot(wec_2));
-	Eigen::Vector3d wec_3 = wec_1.cross(wec_2);
-	wec_3 = wec_3/sqrt(wec_3.dot(wec_3));
-
-	std::vector<Eigen::Vector3d> second_set = {wec_1, wec_2, wec_3}; 
-	
-	Eigen::MatrixXd T = Eigen::MatrixXd::Zero(3,3);
-	for(int i = 0; i < 3; i++) {
-		for(int j = 0; j < 3; j++) {
-			for(int k = 0; k < 3; k++) {
-				T(i, j) += first_set[k](i)*second_set[k](j);
+	void molecule::coefficient::print_coefficients() {
+		for(std::vector<double> i  : coeffs) {
+			for(double j : i) {	
+				std::cout << j << " ";
 			};	
+			std::cout << std::endl;	
 		};
 	};
-	return T;
-};
 
-Eigen::Vector3d vec_normalised(Eigen::Vector3d vec) {
-	return vec/sqrt(vec.dot(vec));	
-};
+	int molecule::coefficient::get_modes() {
+		return modes;
+	};
 
-void molecule::rotate_coords(const Eigen::MatrixXd& T) {	
-	for(int i = 1; i <= num_atoms; i++) {
-		Eigen::Vector3d coords = get_atom_coord(1, i);
-		Eigen::Vector3d values = {0,0,0};
-		for(int j = 0; j < 3; j++) {
-			for(int k = 0; k < 3; k++) {
-				values[j] += coords[k]*T(j,k);	
-			};
-		};
-		set_atom_coord(1, i, values[0], values[1], values[2]);
+	int molecule::coefficient::get_order() {
+		return order;
 	};
-	return;
-};
-
-Eigen::Vector3d molecule::Eckart_cond() {
-	Eigen::Vector3d total = {0,0,0};
-	for(int i = 1; i <= num_atoms; i++) {
-		atom& cur_atom = get_atom_from_num(i);
-		double cur_mass = cur_atom.get_mass();
-		Eigen::Vector3d eq_coord = cur_atom.get_cart_coord(0);
-		Eigen::Vector3d coord = cur_atom.get_cart_coord(1);
-		Eigen::Vector3d cross = eq_coord.cross(coord);
-		total += cur_mass*cross;
-	};
-	return total;
-};	
-
-
-/*Eigen::MatrixXd molecule::empty_matrix() {
-	return Eigen::MatrixXd(3*num_atoms, 3*num_atoms); 
-};
-
-Eigen::MatrixXd& molecule::derivative_matrix(Eigen::MatrixXd& mat) {	
-	std::vector<std::string> axes = {"x", "y", "z"};
-	for(int i = 1; i <= num_atoms; i++) {
-		for(std::string axis_i : axes) {
-			for(int j = 1; j <= i; j++) {
-				for(std::string axis_j : axes) {
-					double val = 0;
-					for(int k = 2; k <= num_atoms; k++) {
-						atom& first_atom = this -> get_atom_from_num(k);
-						std::vector<int> con_atoms = {first_atom.get_number(), first_atom.get_bond_length_atom()};
-						
-						if( check_derivative_atoms(con_atoms, i, j)){
-							val += bond_length_derivative(k, i, axis_i)*bond_length_derivative(k, j, axis_j);
-						};
-					};
-					for(int k = 3; k <= num_atoms; k++) {
-						atom& first_atom = this -> get_atom_from_num(k);
-						std::vector<int> con_atoms = {first_atom.get_number(), first_atom.get_bond_length_atom(), 
-							first_atom.get_angle_atom()};
-						if(check_derivative_atoms(con_atoms, i, j)){
-							val += angle_derivative(k, i, axis_i)*angle_derivative(k, j, axis_j);
-						};
-					};
-					for(int k = 4; k <= num_atoms; k++) {
-						atom& first_atom = this -> get_atom_from_num(k);
-						std::vector<int> con_atoms = first_atom.get_connected_atoms();
-						if(check_derivative_atoms(con_atoms, i, j)){
-							val += dihedral_angle_derivative(k, i, axis_i)*dihedral_angle_derivative(k, j, axis_j);
-						};
-					};
-					mat(3*(i-1) + axes_name_to_num(axis_i), 3*(j-1) + axes_name_to_num(axis_j)) = val;
-					mat(3*(j-1) + axes_name_to_num(axis_j), 3*(i-1) + axes_name_to_num(axis_i)) = val;
-				};
-			};
-		};	
-	};
-	return mat;
-};
-
-bool molecule::check_derivative_atoms(std::vector<int> connected_atoms, int atom_1, int atom_2) {
-	bool bool_a1 = false;
-	bool bool_a2 = false;
-	for(int con_atom : connected_atoms) {
-		if(atom_1 == con_atom) {
-			bool_a1 = true;
-		};
-		if(atom_2 == con_atom) {
-			bool_a2 = true;
-		};	
-	};
-	return (bool_a1 & bool_a2); 
-};
-
-Eigen::VectorXd& molecule::derivative_vector(Eigen::VectorXd& vec, std::vector<std::vector<double>> try_coord) {
-	std::vector<std::string> axes = {"x", "y", "z"};
-	for(int i = 1; i <= num_atoms; i++) {
-		for(std::string axis : axes) {
-			double val = 0;	
-			for(int k = 2; k <= num_atoms; k++) {
-				atom& first_atom = this -> get_atom_from_num(k);
-				std::vector<int> con_atoms = {first_atom.get_number(), first_atom.get_bond_length_atom()};
-
-				if( check_derivative_atoms(con_atoms, i, i)){
-					val += bond_length_derivative(k, i, axis)*(bond_length(k) - try_coord[k-1][0]);
-				};
-			};
-			for(int k = 3; k <= num_atoms; k++) {
-				atom& first_atom = this -> get_atom_from_num(k);
-				std::vector<int> con_atoms = {first_atom.get_number(), first_atom.get_bond_length_atom(), 
-					first_atom.get_angle_atom()};
-				if(check_derivative_atoms(con_atoms, i, i)){
-				val += angle_derivative(k, i, axis)*(angle(k) - try_coord[k-1][1]);
-				};
-			};
-			for(int k = 4; k <= num_atoms; k++) {
-				atom& first_atom = this -> get_atom_from_num(k);
-				std::vector<int> con_atoms = first_atom.get_connected_atoms();
-				if(check_derivative_atoms(con_atoms, i, i)){
-					val += dihedral_angle_derivative(k, i, axis)*(dihedral_angle(k) - try_coord[k-1][2]);
-				};
-			};
-			vec(3*(i-1) + axes_name_to_num(axis)) = val;
-		};
-	};
-	return vec;	
-};
-
-Eigen::VectorXd molecule::empty_vector() {
-	return Eigen::VectorXd(3*num_atoms);
-};
-
-double molecule::coord_difference(std::vector<std::vector<double>> try_coord) {
-	double val = 0;
-	for(int i = 2; i <= num_atoms; i++) {
-		val += pow(bond_length(i) - try_coord[i-1][0], 2);
-	};
-	for(int i = 3; i <= num_atoms; i++) {
-		val += pow(angle(i) - try_coord[i-1][1],2);
-	};
-	for(int i = 4; i <= num_atoms; i++) {
-		val += pow(dihedral_angle(i) - try_coord[i-1][2],2);
-	};
-	return val;
-};
-*/
-int molecule::get_num_atoms() const {
-	return num_atoms;
-};
-
-atom& molecule::get_atom_from_num(unsigned int num) {
-	return atoms[num-1];	
-};
-
-void molecule::print_coords(std::vector<double> coords) {
-	std::cout << "(";
-	for(double i : coords) {
-		std::cout << i << " ";
-	};
-	std::cout << ")" << std::endl;
-};
-
-Eigen::VectorXd molecule::normal_coordinates() {
-	Eigen::VectorXd normal(num_atoms*3);
-	for(int i = 0; i < num_atoms; i++) {
-		atom& cur_atom = get_atom_from_num(i+1);
-		Eigen::Vector3d atom_displacement = cur_atom.get_cart_coord(1) - cur_atom.get_cart_coord(0);
-		for(int j = 0; j < 3; j++) {
-			normal(i*3 + j) = atom_displacement(j);	
-		};
-	};
-	return L_mat.transpose()*M_mat*normal;
-};
-
-
-molecule::molecule(std::string z_matrix_file, std::string molecule_name) : name(molecule_name) {
-	std::vector<double> masses;
-	std::ifstream stream(z_matrix_file);
-	if(!stream) {
-		std::cerr << "Error opening file " + z_matrix_file << std::endl;
-		exit(1);
-	};
-	std::string line;
-
-	if(!getline(stream, line)){
-		file_error_message(z_matrix_file);
-		exit(1);	
-	};
-	std::istringstream iss_1(line);
-	std::string atom_name;
-	double mass;
-	int number_of_atoms = 0;
-	if(!(iss_1 >> atom_name)){
-		file_error_message(z_matrix_file);
-		exit(1);
-	};
-	if(!(iss_1 >> mass)) {
-		file_error_message(z_matrix_file);
-		exit(1);
-	};
-	number_of_atoms++;
-	atoms.push_back(atom(number_of_atoms, mass, atom_name));
-	masses.insert(masses.end(), 3, sqrt(mass));
-
-	if(!getline(stream, line)) {
-		file_error_message(z_matrix_file);
-		exit(1);
-	};
-	std::istringstream iss_2(line);
-	if(!(iss_2 >> atom_name)){
-		file_error_message(z_matrix_file);
-		exit(1);
-	};
-	if(!(iss_2 >> mass)) {
-		file_error_message(z_matrix_file);
-		exit(1);
-	}
-	int num_bond_atom = 0;
-	if(!(iss_2 >> num_bond_atom)){
-		file_error_message(z_matrix_file);
-		exit(1);
-	};
-	if(num_bond_atom > number_of_atoms) {
-		file_error_message(z_matrix_file);
-		exit(1);
-	};
-	number_of_atoms++;
-	atom second_atom(number_of_atoms, mass,  atom_name, num_bond_atom);
-	atoms.push_back(second_atom);
 	
-	masses.insert(masses.end(), 3, sqrt(mass));
 
-	if(!getline(stream, line)) {
+	Eigen::MatrixXd molecule::empty_matrix() {
+		return Eigen::MatrixXd(3*num_atoms, 3*num_atoms); 
+	};
+
+
+	Eigen::MatrixXd molecule::Amat() {
+		Eigen::MatrixXd A = Eigen::MatrixXd::Zero(3,3);
+		for(int i = 1; i <= num_atoms; i++) {
+			atom& cur_atom = get_atom_from_num(i);
+			double mass = cur_atom.get_mass();
+			Eigen::Vector3d coord = cur_atom.get_cart_coord(1);
+			Eigen::Vector3d eq_coord = cur_atom.get_cart_coord(0);
+			for(int j = 0; j < coord.size(); j++) {
+				for(int k = 0; k < coord.size(); k++) {
+					A(j,k) += mass*coord(j)*eq_coord(k);
+				};
+			};
+		};
+		return A;
+	};
+
+	Eigen::MatrixXd molecule::ATAmat(const Eigen::MatrixXd& A) {
+		return A.transpose()*A;
+	};
+
+
+	Eigen::MatrixXd molecule::Tmat(const Eigen::MatrixXd& A) {
+		Eigen::MatrixXd ATA = A.transpose()*A;
+		Eigen::MatrixXd AAT  = A*A.transpose();
+
+		Eigen::EigenSolver<Eigen::MatrixXd> es;
+		es.compute(ATA, true);
+
+		Eigen::Vector3d vec_1 = es.eigenvectors().col(0).real();  
+		std::cout <<" eigenvalue " << es.eigenvalues() << std::endl;
+		vec_1 = vec_1/sqrt(vec_1.dot(vec_1));
+		Eigen::Vector3d vec_2 = es.eigenvectors().col(1).real();
+		vec_2 = vec_2/sqrt(vec_2.dot(vec_2));
+		Eigen::Vector3d vec_3 = vec_1.cross(vec_2);
+		vec_3 = vec_3/sqrt(vec_3.dot(vec_3));
+		std::vector<Eigen::Vector3d> first_set = {vec_1, vec_2, vec_3};
+		
+		Eigen::EigenSolver<Eigen::MatrixXd> ef;
+		ef.compute(AAT, true);
+		int skip;
+		Eigen::Vector3d wec_1;
+		Eigen::Vector3d wec_2;
+		
+		for(int i = 0; i < 3; i++) {
+			if(es.eigenvalues()(0) == ef.eigenvalues()(i)) {
+				wec_1 = ef.eigenvectors().col(i).real();
+				wec_1 = wec_1/sqrt(wec_1.dot(wec_1));
+				skip = i; 
+				break;
+			};
+		};	
+		for(int i = 0; i < 3; i++) {
+			if( i == skip) {
+				continue;
+			};
+			if(es.eigenvalues()(1) == ef.eigenvalues()(i)) {
+				wec_2 = ef.eigenvectors().col(i).real();
+				wec_2 = wec_2/sqrt(wec_2.dot(wec_2));
+				break;
+			};
+		};
+		
+		Eigen::Vector3d wec_3 = wec_1.cross(wec_2);
+		wec_3 = wec_3/sqrt(wec_3.dot(wec_3));
+
+		std::vector<Eigen::Vector3d> second_set = {wec_1, wec_2, wec_3}; 
+
+		Eigen::MatrixXd T = Eigen::MatrixXd::Zero(3,3);
+		for(int i = 0; i < 3; i++) {
+			for(int j = 0; j < 3; j++) {
+				for(int k = 0; k < 3; k++) {
+					T(i, j) += first_set[k](i)*second_set[k](j);
+				};	
+			};
+		};
+		return T;
+	};
+
+	Eigen::Vector3d vec_normalised(Eigen::Vector3d vec) {
+		return vec/sqrt(vec.dot(vec));	
+	};
+
+	void molecule::rotate_coords(const Eigen::MatrixXd& T) {	
+		for(int i = 1; i <= num_atoms; i++) {
+			Eigen::Vector3d coords = get_atom_coord(1, i);
+			Eigen::Vector3d values = {0,0,0};
+			for(int j = 0; j < 3; j++) {
+				for(int k = 0; k < 3; k++) {
+					values[j] += coords[k]*T(j,k);	
+				};
+			};
+			set_atom_coord(1, i, values[0], values[1], values[2]);
+		};
 		return;
 	};
-	std::istringstream iss_3(line);
-	if(!(iss_3 >> atom_name)){
-		file_error_message(z_matrix_file);
-		exit(1);
-	};
-	if(!(iss_3 >> mass)) {
-		file_error_message(z_matrix_file);
-		exit(1);
-	}
-	if(!(iss_3 >> num_bond_atom)){
-		file_error_message(z_matrix_file);
-		exit(1);
-	};
-	if(num_bond_atom > number_of_atoms) {
-		file_error_message(z_matrix_file);
-		exit(1);
-	};
-	int num_angle_atom = 0;
-	if(!(iss_3 >> num_angle_atom)){
-		file_error_message(z_matrix_file);
-		exit(1);
-	};
-	if(num_angle_atom > number_of_atoms) {
-		file_error_message(z_matrix_file);
-		exit(1);
-	};
-	number_of_atoms++;
-	atom third_atom(number_of_atoms, mass, atom_name, num_bond_atom, num_angle_atom);
-	atoms.push_back(third_atom);
-	masses.insert(masses.end(), 3, sqrt(mass));
 
-	while(getline(stream, line)) {
-		std::istringstream iss_4(line);
-		if(!(iss_4 >> atom_name)){
+	Eigen::Vector3d molecule::Eckart_cond() {
+		Eigen::Vector3d total = {0,0,0};
+		for(int i = 1; i <= num_atoms; i++) {
+			atom& cur_atom = get_atom_from_num(i);
+			double cur_mass = cur_atom.get_mass();
+			Eigen::Vector3d eq_coord = cur_atom.get_cart_coord(0);
+			Eigen::Vector3d coord = cur_atom.get_cart_coord(1);
+			Eigen::Vector3d cross = eq_coord.cross(coord);
+			total += cur_mass*cross;
+		};
+		return total;
+	};	
+
+
+	/*Eigen::MatrixXd molecule::empty_matrix() {
+		return Eigen::MatrixXd(3*num_atoms, 3*num_atoms); 
+	};
+
+	Eigen::MatrixXd& molecule::derivative_matrix(Eigen::MatrixXd& mat) {	
+		std::vector<std::string> axes = {"x", "y", "z"};
+		for(int i = 1; i <= num_atoms; i++) {
+			for(std::string axis_i : axes) {
+				for(int j = 1; j <= i; j++) {
+					for(std::string axis_j : axes) {
+						double val = 0;
+						for(int k = 2; k <= num_atoms; k++) {
+							atom& first_atom = this -> get_atom_from_num(k);
+							std::vector<int> con_atoms = {first_atom.get_number(), first_atom.get_bond_length_atom()};
+							
+							if( check_derivative_atoms(con_atoms, i, j)){
+								val += bond_length_derivative(k, i, axis_i)*bond_length_derivative(k, j, axis_j);
+							};
+						};
+						for(int k = 3; k <= num_atoms; k++) {
+							atom& first_atom = this -> get_atom_from_num(k);
+							std::vector<int> con_atoms = {first_atom.get_number(), first_atom.get_bond_length_atom(), 
+								first_atom.get_angle_atom()};
+							if(check_derivative_atoms(con_atoms, i, j)){
+								val += angle_derivative(k, i, axis_i)*angle_derivative(k, j, axis_j);
+							};
+						};
+						for(int k = 4; k <= num_atoms; k++) {
+							atom& first_atom = this -> get_atom_from_num(k);
+							std::vector<int> con_atoms = first_atom.get_connected_atoms();
+							if(check_derivative_atoms(con_atoms, i, j)){
+								val += dihedral_angle_derivative(k, i, axis_i)*dihedral_angle_derivative(k, j, axis_j);
+							};
+						};
+						mat(3*(i-1) + axes_name_to_num(axis_i), 3*(j-1) + axes_name_to_num(axis_j)) = val;
+						mat(3*(j-1) + axes_name_to_num(axis_j), 3*(i-1) + axes_name_to_num(axis_i)) = val;
+					};
+				};
+			};	
+		};
+		return mat;
+	};
+
+	bool molecule::check_derivative_atoms(std::vector<int> connected_atoms, int atom_1, int atom_2) {
+		bool bool_a1 = false;
+		bool bool_a2 = false;
+		for(int con_atom : connected_atoms) {
+			if(atom_1 == con_atom) {
+				bool_a1 = true;
+			};
+			if(atom_2 == con_atom) {
+				bool_a2 = true;
+			};	
+		};
+		return (bool_a1 & bool_a2); 
+	};
+
+	Eigen::VectorXd& molecule::derivative_vector(Eigen::VectorXd& vec, std::vector<std::vector<double>> try_coord) {
+		std::vector<std::string> axes = {"x", "y", "z"};
+		for(int i = 1; i <= num_atoms; i++) {
+			for(std::string axis : axes) {
+				double val = 0;	
+				for(int k = 2; k <= num_atoms; k++) {
+					atom& first_atom = this -> get_atom_from_num(k);
+					std::vector<int> con_atoms = {first_atom.get_number(), first_atom.get_bond_length_atom()};
+
+					if( check_derivative_atoms(con_atoms, i, i)){
+						val += bond_length_derivative(k, i, axis)*(bond_length(k) - try_coord[k-1][0]);
+					};
+				};
+				for(int k = 3; k <= num_atoms; k++) {
+					atom& first_atom = this -> get_atom_from_num(k);
+					std::vector<int> con_atoms = {first_atom.get_number(), first_atom.get_bond_length_atom(), 
+						first_atom.get_angle_atom()};
+					if(check_derivative_atoms(con_atoms, i, i)){
+					val += angle_derivative(k, i, axis)*(angle(k) - try_coord[k-1][1]);
+					};
+				};
+				for(int k = 4; k <= num_atoms; k++) {
+					atom& first_atom = this -> get_atom_from_num(k);
+					std::vector<int> con_atoms = first_atom.get_connected_atoms();
+					if(check_derivative_atoms(con_atoms, i, i)){
+						val += dihedral_angle_derivative(k, i, axis)*(dihedral_angle(k) - try_coord[k-1][2]);
+					};
+				};
+				vec(3*(i-1) + axes_name_to_num(axis)) = val;
+			};
+		};
+		return vec;	
+	};
+
+	Eigen::VectorXd molecule::empty_vector() {
+		return Eigen::VectorXd(3*num_atoms);
+	};
+
+	double molecule::coord_difference(std::vector<std::vector<double>> try_coord) {
+		double val = 0;
+		for(int i = 2; i <= num_atoms; i++) {
+			val += pow(bond_length(i) - try_coord[i-1][0], 2);
+		};
+		for(int i = 3; i <= num_atoms; i++) {
+			val += pow(angle(i) - try_coord[i-1][1],2);
+		};
+		for(int i = 4; i <= num_atoms; i++) {
+			val += pow(dihedral_angle(i) - try_coord[i-1][2],2);
+		};
+		return val;
+	};
+	*/
+	int molecule::get_num_atoms() const {
+		return num_atoms;
+	};
+
+	atom& molecule::get_atom_from_num(unsigned int num) {
+		return atoms[num-1];	
+	};
+
+	void molecule::print_coords(std::vector<double> coords) {
+		std::cout << "(";
+		for(double i : coords) {
+			std::cout << i << " ";
+		};
+		std::cout << ")" << std::endl;
+	};
+
+	Eigen::VectorXd molecule::normal_coordinates() {
+		Eigen::VectorXd normal(num_atoms*3);
+		for(int i = 0; i < num_atoms; i++) {
+			atom& cur_atom = get_atom_from_num(i+1);
+			Eigen::Vector3d atom_displacement = cur_atom.get_cart_coord(1) - cur_atom.get_cart_coord(0);
+			for(int j = 0; j < 3; j++) {
+				normal(i*3 + j) = atom_displacement(j);	
+			};
+		};
+		return L_mat.transpose()*M_mat*normal;
+	};
+
+
+	molecule::molecule(std::string z_matrix_file, std::string molecule_name) : 
+		name(molecule_name) {
+		std::vector<double> masses;
+		std::ifstream stream(z_matrix_file);
+		if(!stream) {
+			std::cerr << "Error opening file " + z_matrix_file << std::endl;
+			exit(1);
+		};
+		std::string line;
+
+		if(!getline(stream, line)){
+			file_error_message(z_matrix_file);
+			exit(1);	
+		};
+		std::istringstream iss_1(line);
+		std::string atom_name;
+		double mass;
+		int number_of_atoms = 0;
+		if(!(iss_1 >> atom_name)){
 			file_error_message(z_matrix_file);
 			exit(1);
 		};
-		if(!(iss_4 >> mass)) {
+		if(!(iss_1 >> mass)) {
+			file_error_message(z_matrix_file);
+			exit(1);
+		};
+		number_of_atoms++;
+		atoms.push_back(atom(number_of_atoms, mass, atom_name));
+		masses.insert(masses.end(), 3, sqrt(mass));
+
+		if(!getline(stream, line)) {
+			file_error_message(z_matrix_file);
+			exit(1);
+		};
+		std::istringstream iss_2(line);
+		if(!(iss_2 >> atom_name)){
+			file_error_message(z_matrix_file);
+			exit(1);
+		};
+		if(!(iss_2 >> mass)) {
 			file_error_message(z_matrix_file);
 			exit(1);
 		}
-		if(!(iss_4 >> num_bond_atom)){
+		int num_bond_atom = 0;
+		if(!(iss_2 >> num_bond_atom)){
 			file_error_message(z_matrix_file);
 			exit(1);
 		};
@@ -341,78 +355,219 @@ molecule::molecule(std::string z_matrix_file, std::string molecule_name) : name(
 			file_error_message(z_matrix_file);
 			exit(1);
 		};
-		if(!(iss_4 >> num_angle_atom)){
+		number_of_atoms++;
+		atom second_atom(number_of_atoms, mass,  atom_name, num_bond_atom);
+		atoms.push_back(second_atom);
+		
+		masses.insert(masses.end(), 3, sqrt(mass));
+
+		if(!getline(stream, line)) {
+			return;
+		};
+		std::istringstream iss_3(line);
+		if(!(iss_3 >> atom_name)){
+			file_error_message(z_matrix_file);
+			exit(1);
+		};
+		if(!(iss_3 >> mass)) {
+			file_error_message(z_matrix_file);
+			exit(1);
+		}
+		if(!(iss_3 >> num_bond_atom)){
+			file_error_message(z_matrix_file);
+			exit(1);
+		};
+		if(num_bond_atom > number_of_atoms) {
+			file_error_message(z_matrix_file);
+			exit(1);
+		};
+		int num_angle_atom = 0;
+		if(!(iss_3 >> num_angle_atom)){
 			file_error_message(z_matrix_file);
 			exit(1);
 		};
 		if(num_angle_atom > number_of_atoms) {
 			file_error_message(z_matrix_file);
 			exit(1);
-		};	
-		int num_dihedral_atom;
-		if(!(iss_4 >> num_dihedral_atom)){
-			file_error_message(z_matrix_file);
-			exit(1);
 		};
 		number_of_atoms++;
-		atom remaining_atom(number_of_atoms, mass, atom_name, num_bond_atom, num_angle_atom, num_dihedral_atom);
-		atoms.push_back(remaining_atom);
-		masses.insert(masses.end(), 3, sqrt(mass));	
-	};
-	num_atoms = number_of_atoms;
-	M_mat.resize(num_atoms*3, num_atoms*3); 
-	M_mat = Eigen::MatrixXd::Zero(num_atoms*3, num_atoms*3);
-	for(int i = 0; i < num_atoms*3; i++) {
-		M_mat(i,i) = masses[i];  
-	};
-	return;
-};
+		atom third_atom(number_of_atoms, mass, atom_name, num_bond_atom, num_angle_atom);
+		atoms.push_back(third_atom);
+		masses.insert(masses.end(), 3, sqrt(mass));
 
-void molecule::set_L_matrix(std::string L_matrix_file) {
-	std::ifstream stream(L_matrix_file);
+		while(getline(stream, line)) {
+			std::istringstream iss_4(line);
+			if(!(iss_4 >> atom_name)){
+				file_error_message(z_matrix_file);
+				exit(1);
+			};
+			if(!(iss_4 >> mass)) {
+				file_error_message(z_matrix_file);
+				exit(1);
+			}
+			if(!(iss_4 >> num_bond_atom)){
+				file_error_message(z_matrix_file);
+				exit(1);
+			};
+			if(num_bond_atom > number_of_atoms) {
+				file_error_message(z_matrix_file);
+				exit(1);
+			};
+			if(!(iss_4 >> num_angle_atom)){
+				file_error_message(z_matrix_file);
+				exit(1);
+			};
+			if(num_angle_atom > number_of_atoms) {
+				file_error_message(z_matrix_file);
+				exit(1);
+			};	
+			int num_dihedral_atom;
+			if(!(iss_4 >> num_dihedral_atom)){
+				file_error_message(z_matrix_file);
+				exit(1);
+			};
+			number_of_atoms++;
+			atom remaining_atom(number_of_atoms, mass, atom_name, num_bond_atom, num_angle_atom, num_dihedral_atom);
+			atoms.push_back(remaining_atom);
+			masses.insert(masses.end(), 3, sqrt(mass));	
+		};
+		num_atoms = number_of_atoms;
+		M_mat.resize(num_atoms*3, num_atoms*3); 
+		M_mat = Eigen::MatrixXd::Zero(num_atoms*3, num_atoms*3);
+		for(int i = 0; i < num_atoms*3; i++) {
+			M_mat(i,i) = masses[i];  
+		};
+		return;
+	};
+
+	void molecule::set_L_matrix(std::string L_matrix_file) {
+		std::ifstream stream(L_matrix_file);
+		if(!stream) {
+			std::cerr << "Error opening file " + L_matrix_file << std::endl;
+			exit(1);
+		};
+		std::string line;
+		std::string word;
+		while(getline(stream, line)) {
+			std::istringstream iss_1(line);
+			iss_1 >> word;
+			if(word != "Displacement") {
+				continue;
+			} else {
+				break;
+			};
+		};
+		while(getline(stream , line)) {
+			if(line.length() == 0) {
+				continue;
+			} else {
+				break; 
+			};
+		};
+		double frequency;
+		std::istringstream iss_2(line);
+		while(iss_2 >> frequency) {
+			frequencies.push_back(frequency);					
+		};
+		getline(stream , line);
+		getline(stream , line);
+		double component;
+		L_mat = Eigen::MatrixXd::Zero(num_atoms*3, num_atoms*3 - 6);
+		for(int i = 0; i < num_atoms*3; i++) {
+			getline(stream, line);
+			int j = 0;
+			std::istringstream iss_3(line);
+			while(iss_3 >> component) {
+				L_mat(i,j) = component;
+				j++;
+			};	
+		}; 
+
+		L_mat = M_mat*L_mat;	
+		L_matrix_set = true;
+		return; 	
+	};
+
+void molecule::set_coefficients(std::string coeff_file) {
+	std::ifstream stream(coeff_file);
 	if(!stream) {
-		std::cerr << "Error opening file " + L_matrix_file << std::endl;
+		std::cerr << "Error opening file" + coeff_file << std::endl;
 		exit(1);
 	};
 	std::string line;
-	std::string word;
+	std::string word_1;
+	std::string word_2;
 	while(getline(stream, line)) {
 		std::istringstream iss_1(line);
-		iss_1 >> word;
-		if(word != "Displacement") {
+		iss_1 >> word_1;
+		iss_1 >> word_2; 
+		if(word_1 != "1D" or word_2 != "polynomials") {
 			continue;
 		} else {
 			break;
 		};
 	};
-	while(getline(stream , line)) {
-		if(line.length() == 0) {
-			continue;
-		} else {
-			break; 
+	getline(stream, line);
+	getline(stream, line);
+	std::istringstream iss_2(line);
+	iss_2>> word_1; 
+	double val;
+	int order;
+	while(iss_2 >> val) {
+		order = val;
+	};
+	int modes = num_atoms*3 - 6;
+	coeffs_1D = coefficient(modes, order, 1);
+	getline(stream, line);
+	
+	int mode;
+	for(int i = 0; i < modes; i++) {
+		getline(stream, line);
+		std::istringstream iss_3(line); 
+		iss_3 >> mode;
+		for(int j = 0; j < order; j++) {
+			iss_3 >> val;
+			coeffs_1D.set_coefficient_1D(mode - 1, j, val);
 		};
 	};
-	double frequency;
-	std::istringstream iss_2(line);
-	while(iss_2 >> frequency) {
-		frequencies.push_back(frequency);					
-	};
-	getline(stream , line);
-	getline(stream , line);
-	double component;
-	L_mat = Eigen::MatrixXd::Zero(num_atoms*3, num_atoms*3 - 6);
-	for(int i = 0; i < num_atoms*3; i++) {
-		getline(stream, line);
-		int j = 0;
-		std::istringstream iss_3(line);
-		while(iss_3 >> component) {
-			L_mat(i,j) = component;
-			j++;
-		};	
-	}; 
 
-	L_mat = M_mat*L_mat;	
-	return; 	
+	while(getline(stream, line)) {
+		std::istringstream iss_1(line);
+		iss_1 >> word_1;
+		iss_1 >> word_2; 
+		if(word_1 != "2D" or word_2 != "polynomials") {
+			continue;
+		} else {
+			break;
+		};
+	}
+	getline(stream, line);
+	getline(stream, line);
+	std::istringstream iss_4(line);
+	iss_4 >> word_1; 
+	while(iss_4 >> val) {
+		order = val;
+	};
+	coeffs_2D = coefficient(modes, order, 2);
+	getline(stream, line);
+	
+	int mode_1; int mode_2; int order_1; int order_2;
+	
+		for(int k = 0; k < 3; k++) {
+		for(int i = 0; i < order; i++) {
+			getline(stream, line);
+			std::istringstream iss_5(line); 
+			iss_5 >> mode_1; iss_5 >> mode_2;
+			iss_5 >> val;
+			for(int j = 0; j < order; j++) {
+				iss_5 >> val;
+				coeffs_2D.set_coefficient_2D(mode_1 - 1, mode_2 - 1, j, i, val);
+			};
+		};
+		getline(stream, line);
+	};
+	coefficients_set = true;
+	return; 
 };
 
 void molecule::print_coordinates(int type) {
@@ -624,6 +779,41 @@ void molecule::set_molecule_coord_Z(int type, std::string coord_file) {
 
 };
 
+
+double molecule::energy() {
+	if(!coefficients_set) {
+		std::cerr << "Haven't set the coefficients" << std::endl;
+		exit(1);
+	};
+	if(!L_matrix_set) {
+		std::cerr << "Haven't set the L matrix" << std::endl;
+		exit(1);
+	};
+	
+	Eigen::MatrixXd A = Amat();
+	Eigen::MatrixXd T = Tmat(A);	
+	std::cout << T << std::endl;
+	rotate_coords(T);
+	
+	Eigen::Vector3d norm_coord = normal_coordinates(); 
+	double total_energy = 0; 
+	for(int i = 0; i < coeffs_1D.get_modes(); i++) {
+		for(int j = 0; j < coeffs_1D.get_order(); j++) {
+			total_energy +=  coeffs_1D.get_coefficient_1D(i, j)*pow(norm_coord(i), j+1);	
+		};
+	};	
+	for(int i = 0; i < coeffs_2D.get_modes(); i++) {
+		for(int j = 0; j < i; j++) {
+			for(int k = 0; k < coeffs_2D.get_order(); k++) {
+				for(int l = 0; l < coeffs_2D.get_order(); l++) {
+					total_energy += coeffs_2D.get_coefficient_2D(i, j, k, l)*pow(norm_coord(i),k+1)*pow(norm_coord(j),l+1);
+				};
+			};
+		};
+	};
+	return total_energy; 
+};
+
 Eigen::Vector3d molecule::centre_of_mass(int type) {
 	Eigen::Vector3d com = {0,0,0};
 	double total_mass; 
@@ -769,6 +959,7 @@ double molecule::dihedral_angle(int type, int atom_num) {
 //};
 
 double molecule::calculate_angle(Eigen::Vector3d coord_1, Eigen::Vector3d coord_2, Eigen::Vector3d coord_3) {
+//	std::cout << coord_1 << std::endl << coord_2 << std::endl << coord_3 << std::endl;
 	Eigen::Vector3d vec_1 = coord_1 - coord_2;
 	Eigen::Vector3d vec_2 = coord_3 - coord_2;
 	return calculate_vec_angle(vec_1, vec_2);	

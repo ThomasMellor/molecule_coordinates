@@ -9,6 +9,21 @@
 
 
 typedef int (atom::*coord_func)() const;
+molecule::coefficient::coefficient(int num_modes, int num_order, int num_dimension) : modes(num_modes), 
+	order(num_order), dimension(num_dimension) {
+	};
+void molecule::coefficient::set_coefficient_2D(int mode_1, int mode_2, int order_1, int order_2) {
+	return;	
+	};
+double get_coefficient_2D(int mode_1, int mode_2, int order_1, int order_2){ 
+	return 0;
+};
+void set_coefficient_1D(int mode, int order) {
+	return;
+};
+double get_coefficient_1D(int mode, int order) {
+	return 0; 
+};
 
 Eigen::MatrixXd molecule::empty_matrix() {
 	return Eigen::MatrixXd(3*num_atoms, 3*num_atoms); 
