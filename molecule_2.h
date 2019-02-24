@@ -25,6 +25,16 @@ class molecule {
 			double get_coefficient_1D(int mode, int order);
 			void print_coefficients(); 
 	};
+	
+	class grid_points {
+		private: 
+			std::vector<int> modes;
+			std::vector<std::string> labels;	
+			std::vector<double> values;
+		public:
+			grid_points(std::vector<int> num_modes, std::vector<std::string> input_label);
+	};	
+
 
 	public:
 		int num_atoms = 0;
@@ -39,6 +49,8 @@ class molecule {
 		Eigen::MatrixXd M_mat;
 		molecule::coefficient coeffs_1D;
 		molecule::coefficient coeffs_2D;
+		std::vector<molecule::grid_points> grid_points_vector;
+
 
 		static void file_error_message(std::string file);
 		static void coord_length_error_message();
@@ -92,6 +104,7 @@ class molecule {
 		molecule(std::string z_matrix_file, std::string molecule_name);	
 		void set_L_matrix(std::string L_matrix_file);
 		void set_coefficients(std::string coefficient_file);
+		void set_grid(std::string grid_file);
 		double bond_length(int type, int atom_num);
 		double angle(int type, int atom_num);
 		double dihedral_angle(int type, int atom_num);

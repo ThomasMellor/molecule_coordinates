@@ -9,7 +9,8 @@
 
 
 	typedef int (atom::*coord_func)() const;
-
+	const double proton_mass = 1822.888;
+	const double threshold = 0.0001;
 	molecule::coefficient::coefficient(int num_modes, int num_order, int num_dimension) : modes(num_modes), 
 	order(num_order), dimension(num_dimension), coeffs(pow(num_modes, num_dimension), std::vector<double>(pow(num_order,num_dimension))) {}; 
 
@@ -49,6 +50,9 @@
 		return order;
 	};
 	
+	molecule::grid_points::grid_points(std::vector<int> num_modes, std::vector<std::string> input_labels) : modes(num_modes), labels(input_labels) {};
+
+	
 
 	Eigen::MatrixXd molecule::empty_matrix() {
 		return Eigen::MatrixXd(3*num_atoms, 3*num_atoms); 
@@ -79,12 +83,11 @@
 	Eigen::MatrixXd molecule::Tmat(const Eigen::MatrixXd& A) {
 		Eigen::MatrixXd ATA = A.transpose()*A;
 		Eigen::MatrixXd AAT  = A*A.transpose();
-
+		std::cout << ATA << std::endl;
+		std::cout << AAT << std::endl;
 		Eigen::EigenSolver<Eigen::MatrixXd> es;
 		es.compute(ATA, true);
-
 		Eigen::Vector3d vec_1 = es.eigenvectors().col(0).real();  
-		std::cout <<" eigenvalue " << es.eigenvalues() << std::endl;
 		vec_1 = vec_1/sqrt(vec_1.dot(vec_1));
 		Eigen::Vector3d vec_2 = es.eigenvectors().col(1).real();
 		vec_2 = vec_2/sqrt(vec_2.dot(vec_2));
@@ -97,9 +100,11 @@
 		int skip;
 		Eigen::Vector3d wec_1;
 		Eigen::Vector3d wec_2;
-		
+	
+		std::cout << "ATA " << es.eigenvalues() << std::endl;
+		std::cout << "AAT " << ef.eigenvalues() << std::endl;	
 		for(int i = 0; i < 3; i++) {
-			if(es.eigenvalues()(0) == ef.eigenvalues()(i)) {
+			if(fabs(es.eigenvalues()(0) - ef.eigenvalues()(i)) < threshold) {
 				wec_1 = ef.eigenvectors().col(i).real();
 				wec_1 = wec_1/sqrt(wec_1.dot(wec_1));
 				skip = i; 
@@ -110,7 +115,7 @@
 			if( i == skip) {
 				continue;
 			};
-			if(es.eigenvalues()(1) == ef.eigenvalues()(i)) {
+			if(fabs(es.eigenvalues()(1) - ef.eigenvalues()(i)) < threshold) {
 				wec_2 = ef.eigenvectors().col(i).real();
 				wec_2 = wec_2/sqrt(wec_2.dot(wec_2));
 				break;
@@ -130,6 +135,7 @@
 				};	
 			};
 		};
+		std::cout << T << std::endl;
 		return T;
 	};
 
@@ -299,7 +305,7 @@
 				normal(i*3 + j) = atom_displacement(j);	
 			};
 		};
-		return L_mat.transpose()*M_mat*normal;
+		return L_mat.transpose()*sqrt(proton_mass)*M_mat*normal;
 	};
 
 
@@ -372,7 +378,7 @@
 		if(!(iss_3 >> mass)) {
 			file_error_message(z_matrix_file);
 			exit(1);
-		}
+		};
 		if(!(iss_3 >> num_bond_atom)){
 			file_error_message(z_matrix_file);
 			exit(1);
@@ -451,9 +457,13 @@
 		while(getline(stream, line)) {
 			std::istringstream iss_1(line);
 			iss_1 >> word;
-			if(word != "Displacement") {
+			if(word != "###") {
 				continue;
 			} else {
+				iss_1 >> word;
+				if(word != "DISPLACEMENT") {
+					continue;
+				};
 				break;
 			};
 		};
@@ -465,111 +475,159 @@
 			};
 		};
 		double frequency;
+		
 		std::istringstream iss_2(line);
+		iss_2 >> word;
+		iss_2 >> word;
+
 		while(iss_2 >> frequency) {
 			frequencies.push_back(frequency);					
 		};
 		getline(stream , line);
 		getline(stream , line);
 		double component;
+		std::istringstream iss_3(line);
+		iss_3 >> word;
 		L_mat = Eigen::MatrixXd::Zero(num_atoms*3, num_atoms*3 - 6);
+		
 		for(int i = 0; i < num_atoms*3; i++) {
-			getline(stream, line);
-			int j = 0;
-			std::istringstream iss_3(line);
-			while(iss_3 >> component) {
-				L_mat(i,j) = component;
-				j++;
-			};	
+			if(i!=0) {
+				getline(stream, line);
+				std::istringstream iss_4(line);
+				int j = 0;
+				while(iss_4 >> component) {
+					L_mat(i,j) = component*sqrt(proton_mass);
+					j++;
+				};
+			} else {
+				std::istringstream iss_4(line);
+				int j = 0;
+				while(iss_4 >> component) {
+					L_mat(i,j) = component*sqrt(proton_mass);
+					j++;
+				};
+			};
 		}; 
-
 		L_mat = M_mat*L_mat;	
+		std::cout << "L mat end " << L_mat << std::endl;	
 		L_matrix_set = true;
 		return; 	
 	};
 
-void molecule::set_coefficients(std::string coeff_file) {
-	std::ifstream stream(coeff_file);
-	if(!stream) {
-		std::cerr << "Error opening file" + coeff_file << std::endl;
-		exit(1);
-	};
-	std::string line;
-	std::string word_1;
-	std::string word_2;
-	while(getline(stream, line)) {
-		std::istringstream iss_1(line);
-		iss_1 >> word_1;
-		iss_1 >> word_2; 
-		if(word_1 != "1D" or word_2 != "polynomials") {
-			continue;
-		} else {
-			break;
+	void molecule::set_coefficients(std::string coeff_file) {
+		std::ifstream stream(coeff_file);
+		if(!stream) {
+			std::cerr << "Error opening file" + coeff_file << std::endl;
+			exit(1);
 		};
-	};
-	getline(stream, line);
-	getline(stream, line);
-	std::istringstream iss_2(line);
-	iss_2>> word_1; 
-	double val;
-	int order;
-	while(iss_2 >> val) {
-		order = val;
-	};
-	int modes = num_atoms*3 - 6;
-	coeffs_1D = coefficient(modes, order, 1);
-	getline(stream, line);
-	
-	int mode;
-	for(int i = 0; i < modes; i++) {
-		getline(stream, line);
-		std::istringstream iss_3(line); 
-		iss_3 >> mode;
-		for(int j = 0; j < order; j++) {
-			iss_3 >> val;
-			coeffs_1D.set_coefficient_1D(mode - 1, j, val);
-		};
-	};
-
-	while(getline(stream, line)) {
-		std::istringstream iss_1(line);
-		iss_1 >> word_1;
-		iss_1 >> word_2; 
-		if(word_1 != "2D" or word_2 != "polynomials") {
-			continue;
-		} else {
-			break;
-		};
-	}
-	getline(stream, line);
-	getline(stream, line);
-	std::istringstream iss_4(line);
-	iss_4 >> word_1; 
-	while(iss_4 >> val) {
-		order = val;
-	};
-	coeffs_2D = coefficient(modes, order, 2);
-	getline(stream, line);
-	
-	int mode_1; int mode_2; int order_1; int order_2;
-	
-		for(int k = 0; k < 3; k++) {
-		for(int i = 0; i < order; i++) {
-			getline(stream, line);
-			std::istringstream iss_5(line); 
-			iss_5 >> mode_1; iss_5 >> mode_2;
-			iss_5 >> val;
-			for(int j = 0; j < order; j++) {
-				iss_5 >> val;
-				coeffs_2D.set_coefficient_2D(mode_1 - 1, mode_2 - 1, j, i, val);
+		std::string line;
+		std::string word_1;
+		std::string word_2;
+		while(getline(stream, line)) {
+			std::istringstream iss_1(line);
+			iss_1 >> word_1;
+			iss_1 >> word_2; 
+			if(word_1 != "1D" or word_2 != "polynomials") {
+				continue;
+			} else {
+				break;
 			};
 		};
 		getline(stream, line);
-	};
-	coefficients_set = true;
-	return; 
-};
+		getline(stream, line);
+		std::istringstream iss_2(line);
+		iss_2>> word_1; 
+		double val;
+		int order;
+		while(iss_2 >> val) {
+			order = val;
+		};
+		int modes = num_atoms*3 - 6;
+		coeffs_1D = coefficient(modes, order, 1);
+		getline(stream, line);
+		
+		int mode;
+		for(int i = 0; i < modes; i++) {
+			getline(stream, line);
+			std::istringstream iss_3(line); 
+			iss_3 >> mode;
+			for(int j = 0; j < order; j++) {
+				iss_3 >> val;
+				coeffs_1D.set_coefficient_1D(mode - 1, j, val);
+			};
+		};
 
+		while(getline(stream, line)) {
+			std::istringstream iss_1(line);
+			iss_1 >> word_1;
+			iss_1 >> word_2; 
+			if(word_1 != "2D" or word_2 != "polynomials") {
+				continue;
+			} else {
+				break;
+			};
+		}
+		getline(stream, line);
+		getline(stream, line);
+		std::istringstream iss_4(line);
+		iss_4 >> word_1; 
+		while(iss_4 >> val) {
+			order = val;
+		};
+		coeffs_2D = coefficient(modes, order, 2);
+		getline(stream, line);
+		
+		int mode_1; int mode_2; int order_1; int order_2;
+		
+		for(int k = 0; k < 3; k++) {
+			for(int i = 0; i < order; i++) {
+				getline(stream, line);
+				std::istringstream iss_5(line); 
+				iss_5 >> mode_1; iss_5 >> mode_2;
+				iss_5 >> val;
+				for(int j = 0; j < order; j++) {
+					iss_5 >> val;
+					coeffs_2D.set_coefficient_2D(mode_1 - 1, mode_2 - 1, j, i, val);
+				};
+			};
+			getline(stream, line);
+		};
+		coefficients_set = true;
+		return; 
+	};
+	
+	void molecule::set_grid_points(std::string grid_file) {
+		std::ifstream stream(grid_file);
+		if(!stream) {
+			std::cerr << "Error opening file" + grid_file << std::endl;
+			exit(1);
+		};
+		int expansion_order;
+		while getline(stream, line) {
+			std::istringstream iss_1(line);
+			std::string word;
+			std::stringstream ss;
+			for(int i = 0; i < 5; i++) {
+				iss_1 >> word;
+				ss << word << " ";
+			};
+			std::string sentence = ss.str();
+			if(sentence == "Order of the potential energy ") {
+				iss_1 >> word;
+				iss_1 >> word;
+				iss_1 >> word;	
+				iss_1 >> expansion_order;
+				break;
+			};
+		};	
+		for(int i = 1; i <= expansion_order; i++) {
+			std::stringstream ss;
+			ss <<"#   " << i << "D SURFACE:"
+			std::string sentence = ss.str();
+						
+		};
+	};
+	
 void molecule::print_coordinates(int type) {
 	for(int i = 1; i <= num_atoms; i++) {
 		if(i == 1) {
@@ -687,7 +745,6 @@ void molecule::set_molecule_coord_Z(int type, std::string coord_file) {
 				file_error_message(coord_file);
 				exit(1);
 			};
-	
 			if(cur_atom.get_bond_length_atom() != bond_atom) {
 				Z_coord_error();
 				exit(1);
