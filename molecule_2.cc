@@ -636,11 +636,11 @@ void molecule::set_grid_coeffs(std::string grid_file, int input_poly_order) {
 		std::istringstream iss_3(line);
 		int num_columns;
 		int num_surfaces;
-		int num_ab_points;
 		for(int j = 0; j < 5; j++) {
 			iss_3 >> line;
 		};	
 		iss_3 >> num_columns;
+		num_columns += i; 
 		getline(stream, line);
 		getline(stream, line);
 		
@@ -663,13 +663,89 @@ void molecule::set_grid_coeffs(std::string grid_file, int input_poly_order) {
 				iss_5 >> mode;
 				num_modes.push_back(mode);
 			};
-			molecule::grid_coeffs coeffs(num_modes, dimension_labels(i), input_poly_order);
 			getline(stream, line);
+			std::istringstream iss_6(line);
+			for(int k = 0; k < 8; k++) {
+				iss_6 >> word;
+			};
+			int num_ab_points;
+			if(!(num_ab_points = std::stoi(word))) {
+				std::string num_points_str = word.substr(0, word.length()-1);
+				num_ab_points = std::stoi(word);
+			};
+			rest_of_sentence = find_line(stream, 1, "Grid "); 	
+			
+			std::istringstream iss_7(rest_of_sentence);
+			iss_7 >> word;	
+			
+			bool has_dipole = false;
+			if((iss_7 >> word) && word == "Dipole") {
+				has_dipole = true;
+			};	
+			getline(stream, line);
+			std::istringstream iss_8(line);
+			int k = 0;
+			for(int l = 0; l < i; l++) {
+				k++;
+				iss_8 >> word;
+			};
+			iss_8 >> word;
+			std::vector<std::string> energy_labels;
+			energy_labels.push_back(word);
+			k++;
+			while(k < num_columns) {
+				if(has_dipole) {
+					for(int l = 0; l < 3; l++) {
+						iss_8 >> word;
+						k++;
+					};
+				};
+				if(!(k < num_columns)) {
+					break;
+				};
+				iss_8 >> word;
+				k++;
+				energy_labels.push_back(word);		
+			};
+			molecule::grid_coeffs coeffs_object(num_modes, energy_labels, input_poly_order);
+			
+			int correct_col;
+			if(has_dipole) {
+				correct_col = (num_columns - i)/4 + i;
+			} else {
+				correct_col = num_columns;
+			};
+			Eigen::MatrixXd grid_points = Eigen::MatrixXd::Zero(num_ab_points, correct_col); 
+			for(int l = 0; l < num_ab_points; l++) {
+				double value;
+				getline(stream, line);
+				std::istringstream iss_9(line);
+				k = 0;
+				for(int m = 0; m < i; m++) {
+					iss_9 >> value;
+					grid_points(l, k) = value;
+					k++;
+				};
+				iss_9 >> value;
+				grid_points(l, k) = value; 
+				k++;
+				while(k < correct_col) {
+					if(has_dipole) {
+						for(int n = 0; n < 3; n++) {
+							iss_9 >> value;
+						};
+					};
+					if(!(k < correct_col)) {
+						break;
+					};
+					iss_9 >> value;
+					grid_points(l, k) = value;
+					k++;
+				};
+			};
+			std::cout << grid_points << std::endl;
 		};
 	};
-		
-
-
 };
 	
 void molecule::print_coordinates(int type) {

@@ -31,10 +31,10 @@ class molecule {
 			std::vector<int> modes;
 			int poly_order;
 			std::vector<std::string> labels;	
-			std::vector<double> coeffs;
+			std::vector<std::vector<double>> coeffs;
 			grid_coeffs();
 		public:
-			grid_coeffs(std::vector<int> num_modes, std::vector<std::string> input_label, int poly_order);
+			grid_coeffs(std::vector<int> num_modes, std::vector<std::string> input_labels, int poly_order);
 	};	
 
 
