@@ -26,13 +26,15 @@ class molecule {
 			void print_coefficients(); 
 	};
 	
-	class grid_points {
+	class grid_coeffs {
 		private: 
 			std::vector<int> modes;
+			int poly_order;
 			std::vector<std::string> labels;	
-			std::vector<double> values;
+			std::vector<double> coeffs;
+			grid_coeffs();
 		public:
-			grid_points(std::vector<int> num_modes, std::vector<std::string> input_label);
+			grid_coeffs(std::vector<int> num_modes, std::vector<std::string> input_label, int poly_order);
 	};	
 
 
@@ -49,8 +51,11 @@ class molecule {
 		Eigen::MatrixXd M_mat;
 		molecule::coefficient coeffs_1D;
 		molecule::coefficient coeffs_2D;
-		std::vector<molecule::grid_points> grid_points_vector;
-
+		std::vector<std::vector<molecule::grid_coeffs>> grid_coeffs_vector;
+		Eigen::MatrixXi multi_level_mat; 
+		std::vector<std::string> dimension_labels;
+		int expansion_order;
+		
 
 		static void file_error_message(std::string file);
 		static void coord_length_error_message();
@@ -97,6 +102,7 @@ class molecule {
 		double coord_difference(std::vector<std::vector<double>> try_coord);
 		void move_to_COM(int type);
 		Eigen::Vector3d centre_of_mass(int type); 
+		static std::string find_line(std::ifstream& stream, int num_words, const std::string& target_sentence);
 	public:
 		void print_coordinates(int type);
 		void print_cart_coords(int type);
@@ -104,7 +110,7 @@ class molecule {
 		molecule(std::string z_matrix_file, std::string molecule_name);	
 		void set_L_matrix(std::string L_matrix_file);
 		void set_coefficients(std::string coefficient_file);
-		void set_grid(std::string grid_file);
+		void set_grid_coeffs(std::string grid_file, int input_poly_order);
 		double bond_length(int type, int atom_num);
 		double angle(int type, int atom_num);
 		double dihedral_angle(int type, int atom_num);

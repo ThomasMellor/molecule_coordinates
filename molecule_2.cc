@@ -50,9 +50,7 @@
 		return order;
 	};
 	
-	molecule::grid_points::grid_points(std::vector<int> num_modes, std::vector<std::string> input_labels) : modes(num_modes), labels(input_labels) {};
-
-	
+	molecule::grid_coeffs::grid_coeffs(std::vector<int> num_modes, std::vector<std::string> input_labels, int input_poly_order) : modes(num_modes), labels(input_labels), poly_order(input_poly_order) {};
 
 	Eigen::MatrixXd molecule::empty_matrix() {
 		return Eigen::MatrixXd(3*num_atoms, 3*num_atoms); 
@@ -596,37 +594,83 @@
 		return; 
 	};
 	
-	void molecule::set_grid_points(std::string grid_file) {
-		std::ifstream stream(grid_file);
-		if(!stream) {
-			std::cerr << "Error opening file" + grid_file << std::endl;
-			exit(1);
-		};
-		int expansion_order;
-		while getline(stream, line) {
-			std::istringstream iss_1(line);
-			std::string word;
-			std::stringstream ss;
-			for(int i = 0; i < 5; i++) {
-				iss_1 >> word;
-				ss << word << " ";
-			};
-			std::string sentence = ss.str();
-			if(sentence == "Order of the potential energy ") {
-				iss_1 >> word;
-				iss_1 >> word;
-				iss_1 >> word;	
-				iss_1 >> expansion_order;
-				break;
-			};
-		};	
-		for(int i = 1; i <= expansion_order; i++) {
-			std::stringstream ss;
-			ss <<"#   " << i << "D SURFACE:"
-			std::string sentence = ss.str();
-						
+void molecule::set_grid_coeffs(std::string grid_file, int input_poly_order) {
+	std::ifstream stream(grid_file);
+	std::string line;
+	if(!stream) {
+		std::cerr << "Error opening file" + grid_file << std::endl;
+		exit(1);
+	};
+	int order;
+	std::string rest_of_sentence = find_line(stream, 5, "Order of the potential energy ");	
+	std::istringstream iss_1(rest_of_sentence);
+	std::string word;
+	iss_1 >> word;
+	iss_1 >> word;
+	iss_1 >> word;
+	iss_1 >> expansion_order;
+	
+	multi_level_mat = Eigen::MatrixXi::Zero(expansion_order, expansion_order);	
+	grid_coeffs_vector.resize(expansion_order);
+	
+	rest_of_sentence = find_line(stream, 3, "### MULTI LEVEL ");
+	for(int i = 0; i < expansion_order; i++) {
+		getline(stream, line);
+		std::istringstream iss_2(line);
+		int mat_element;
+		iss_2 >> word;
+		dimension_labels.push_back(word);
+		for(int j = 0; j < expansion_order; j++) {
+			iss_2 >> mat_element; 
+			multi_level_mat(i, j) = mat_element;
 		};
 	};
+	
+	for(int i = 1; i <= expansion_order; i++) {
+		std::stringstream ss;
+		ss <<"### " << i << "D SURFACES ";
+		std::string sentence = ss.str();
+		rest_of_sentence = find_line(stream, 3, sentence);
+		
+		getline(stream, line);
+		std::istringstream iss_3(line);
+		int num_columns;
+		int num_surfaces;
+		int num_ab_points;
+		for(int j = 0; j < 5; j++) {
+			iss_3 >> line;
+		};	
+		iss_3 >> num_columns;
+		getline(stream, line);
+		getline(stream, line);
+		
+		std::istringstream iss_4(line);
+		for(int j = 0; j < 3; j++) {
+			iss_4 >> line;
+		};
+		iss_4 >> num_surfaces;
+		
+		for(int j = 0; j < num_surfaces; j++) {
+			std::stringstream nss;
+			nss << "# " << i << "D SURFACE: MODES: ";  
+			sentence = nss.str();
+			rest_of_sentence = find_line(stream, 4, sentence);
+			std::istringstream iss_5(rest_of_sentence);
+			int mode;
+			std::vector<int> num_modes;
+			
+			for(int k = 0; k < i; k++) {
+				iss_5 >> mode;
+				num_modes.push_back(mode);
+			};
+			molecule::grid_coeffs coeffs(num_modes, dimension_labels(i), input_poly_order);
+			getline(stream, line);
+		};
+	};
+		
+
+
+};
 	
 void molecule::print_coordinates(int type) {
 	for(int i = 1; i <= num_atoms; i++) {
@@ -1207,3 +1251,27 @@ void molecule::coord_length_error_message() {
 void molecule::Z_coord_error() {
 	std::cerr << "The inputted Z matrix does not match what is stored in this molecule" << std::endl;
 };
+
+std::string molecule::find_line(std::ifstream& stream, int num_words, const std::string& target_sentence) {
+	std::string line;
+	std::stringstream fss;
+	while( getline(stream, line) ){
+		std::istringstream iss_1(line);
+		std::string word;
+		std::stringstream ss;
+		for(int i = 0; i < num_words; i++) {
+			iss_1 >> word;
+			ss << word << " ";
+		};
+		std::string sentence = ss.str();
+		if(sentence == target_sentence) {
+			while(iss_1 >> word) {
+				fss << word << " ";
+			};
+			break;
+		};
+	};
+	return fss.str();
+};
+
+

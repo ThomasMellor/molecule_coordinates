@@ -8,6 +8,8 @@ int main() {
 	mol.set_molecule_coord(0,"./h2o_eq.txt");
 	mol.set_molecule_coord(1, "./h20_coord.txt");
 	mol.set_L_matrix("./h2o.xpot");
+	mol.set_grid_coeffs("./h2o.xpot", 8);
+	/*
 	mol.print_coordinates(0);
 	mol.print_coordinates(1);
 	std::cout << mol.L_mat << std::endl;
@@ -18,4 +20,5 @@ int main() {
 	mol.rotate_coords(T);
 	std::cout << "Eckart" << std::endl << mol.Eckart_cond() <<std::endl;
 	std::cout << "normal" << std::endl << mol.normal_coordinates()  << std::endl;
+	*/
 };
