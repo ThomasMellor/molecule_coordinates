@@ -5,7 +5,7 @@
 #include <vector>
 #include <string> 
 #include "eigen-eigen-5a0156e40feb/Eigen/Dense"
-
+#include "eigen-eigen-5a0156e40feb/Eigen/QR"
 class molecule {
 
 	class coefficient {
@@ -103,6 +103,7 @@ class molecule {
 		void move_to_COM(int type);
 		Eigen::Vector3d centre_of_mass(int type); 
 		static std::string find_line(std::ifstream& stream, int num_words, const std::string& target_sentence);
+		static std::vector<Eigen::MatrixXd> inverted_design_matrices(const Eigen::MatrixXd& grid_points, int dim, int poly_order);
 	public:
 		void print_coordinates(int type);
 		void print_cart_coords(int type);

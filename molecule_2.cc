@@ -743,7 +743,13 @@ void molecule::set_grid_coeffs(std::string grid_file, int input_poly_order) {
 					k++;
 				};
 			};
-			std::cout << grid_points << std::endl;
+			std::cout << " grid_points \n " << grid_points << std::endl;
+			std::vector<Eigen::MatrixXd> inverted_design_mat = 
+				molecule::inverted_design_matrices(grid_points, i, input_poly_order);
+			for(Eigen::MatrixXd mat : inverted_design_mat) {
+				std::cout << "mat \n "<<  mat << std::endl;
+			};
+			
 		};
 	};
 };
@@ -1350,4 +1356,24 @@ std::string molecule::find_line(std::ifstream& stream, int num_words, const std:
 	return fss.str();
 };
 
-
+std::vector<Eigen::MatrixXd> molecule::inverted_design_matrices(const Eigen::MatrixXd& grid_points, int dim, int poly_order) {
+	std::vector<Eigen::MatrixXd> matrices;
+	for(int i = 0; i < dim; i++) {
+		Eigen::MatrixXd design_mat = Eigen::MatrixXd::Zero(grid_points.rows(), poly_order + 1);
+		for(int j = 0; j <= poly_order; j++) {
+			for(int k = 0; k < grid_points.rows(); k++) {
+				design_mat(k, j) = pow(grid_points(k, i), j); 
+			};
+		};
+		std::cout << "design mat \n " <<   design_mat << std::endl;
+		if(dim == 1) {
+			//std::cout << "direct inverse \n "  << design_mat.inverse() << std::endl;
+		};
+		Eigen::MatrixXd inverse_mat = ((design_mat.transpose()*design_mat).inverse())*(design_mat.transpose());
+		std::cout << "multiplication \n " << inverse_mat*design_mat << std::endl;
+		Eigen::MatrixXd alternative_inverse = design_mat.completeOrthogonalDecomposition().pseudoInverse();
+		std::cout << "alternative multiplication " << alternative_inverse*design_mat;
+		matrices.push_back(inverse_mat);
+	};
+	return matrices;
+};

@@ -8,7 +8,7 @@ int main() {
 	mol.set_molecule_coord(0,"./h2o_eq.txt");
 	mol.set_molecule_coord(1, "./h20_coord.txt");
 	mol.set_L_matrix("./h2o.xpot");
-	mol.set_grid_coeffs("./h2o.xpot", 8);
+	mol.set_grid_coeffs("./h2o.xpot", 6 );
 	/*
 	mol.print_coordinates(0);
 	mol.print_coordinates(1);
