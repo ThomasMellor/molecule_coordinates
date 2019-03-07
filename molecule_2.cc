@@ -1,4 +1,5 @@
 #include "molecule_2.h"
+#include "matrix_op.h"
 #include <fstream>
 #include <sstream>
 #include <iostream>
@@ -136,6 +137,7 @@
 		std::cout << T << std::endl;
 		return T;
 	};
+
 
 	Eigen::Vector3d vec_normalised(Eigen::Vector3d vec) {
 		return vec/sqrt(vec.dot(vec));	
@@ -743,15 +745,35 @@ void molecule::set_grid_coeffs(std::string grid_file, int input_poly_order) {
 					k++;
 				};
 			};
-			std::cout << " grid_points \n " << grid_points << std::endl;
 			std::vector<Eigen::MatrixXd> inverted_design_mat = 
 				molecule::inverted_design_matrices(grid_points, i, input_poly_order);
-			for(Eigen::MatrixXd mat : inverted_design_mat) {
-				std::cout << "mat \n "<<  mat << std::endl;
-			};
-			
 		};
 	};
+};
+
+Eigen::MatrixXd  molecule::fitting_coefficients(int level, const Eigen::MatrixXd& V, const std::vector<Eigen::MatrixXd>& inverted_design_mat) {
+	
+	int dim = inverted_design_mat.size();
+	int num_grid = inverted_design_mat[0].rows(); int num_basis = inverted_design_mat[0].cols();
+	if(V.rows() != pow(num_grid, dim)) {
+		std::cerr << "Not enough potenial energies" << std::endl;
+		exit(1);
+	};
+
+	Eigen::MatrixXd reshaped_V = V;	
+	reshaped_V.resize(pow(num_grid, dim-level-2), pow(num_grid, 2));
+	Eigen::MatrixXd V1 = Eigen::MatrixXd::Zero(pow(num_basis, dim-level-2),pow(num_grid, 2));
+	if((dim-level)==3) {
+		V1 = inverted_design_mat[dim-1]*reshaped_V;
+	} else if((dim-level)==4) {
+		V1 = outer_product(inverted_design_mat[dim-2], inverted_design_mat[dim-1])*reshaped_V;
+	} else {
+		for(int i = 0; i < pow(num_grid, 2); i++) {
+			Eigen::MatrixXd V1_tmp = fitting_coefficients(level + 2, reshaped_V.col(i), inverted_design_mat);
+			V1.col(i) = V1_tmp;
+		};
+	};
+	Eigen::MatrixXd coeffs = V1*outer_product( (inverted_design_mat[level]).transpose(), (inverted_design_mat[level+1]).transpose());
 };
 	
 void molecule::print_coordinates(int type) {
@@ -961,6 +983,7 @@ void molecule::set_molecule_coord_Z(int type, std::string coord_file) {
 	return;
 
 };
+
 
 
 double molecule::energy() {
@@ -1365,14 +1388,7 @@ std::vector<Eigen::MatrixXd> molecule::inverted_design_matrices(const Eigen::Mat
 				design_mat(k, j) = pow(grid_points(k, i), j); 
 			};
 		};
-		std::cout << "design mat \n " <<   design_mat << std::endl;
-		if(dim == 1) {
-			//std::cout << "direct inverse \n "  << design_mat.inverse() << std::endl;
-		};
-		Eigen::MatrixXd inverse_mat = ((design_mat.transpose()*design_mat).inverse())*(design_mat.transpose());
-		std::cout << "multiplication \n " << inverse_mat*design_mat << std::endl;
-		Eigen::MatrixXd alternative_inverse = design_mat.completeOrthogonalDecomposition().pseudoInverse();
-		std::cout << "alternative multiplication " << alternative_inverse*design_mat;
+		Eigen::MatrixXd inverse_mat = design_mat.completeOrthogonalDecomposition().pseudoInverse();
 		matrices.push_back(inverse_mat);
 	};
 	return matrices;

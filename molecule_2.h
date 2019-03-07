@@ -104,6 +104,7 @@ class molecule {
 		Eigen::Vector3d centre_of_mass(int type); 
 		static std::string find_line(std::ifstream& stream, int num_words, const std::string& target_sentence);
 		static std::vector<Eigen::MatrixXd> inverted_design_matrices(const Eigen::MatrixXd& grid_points, int dim, int poly_order);
+		static Eigen::MatrixXd fitting_coefficients(int level, const Eigen::MatrixXd& V, const std::vector<Eigen::MatrixXd>& inverted_design_mat); 
 	public:
 		void print_coordinates(int type);
 		void print_cart_coords(int type);
