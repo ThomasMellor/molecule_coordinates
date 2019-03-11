@@ -7,16 +7,17 @@
 #include "eigen-eigen-5a0156e40feb/Eigen/Dense"
 #include "eigen-eigen-5a0156e40feb/Eigen/QR"
 class molecule {
-
 	class coefficient {
 		public:
 			int modes;
 			int order;
 			int dimension;
 			std::vector<std::vector<double>> coeffs; 
+			int col_num;
 		public:
 			int get_modes();
 			int get_order();
+			int get_col_num();
 			coefficient(int num_modes, int num_order, int num_dimension);
 			coefficient(); 
 			void set_coefficient_2D(int mode_1, int mode_2, int order_1, int order_2, int val);
@@ -35,6 +36,10 @@ class molecule {
 			grid_coeffs();
 		public:
 			grid_coeffs(std::vector<int> num_modes, std::vector<std::string> input_labels, int poly_order);
+			std::vector<int> get_modes();
+			int get_poly_order();
+			std::vector<std::vector<double>> get_coeffs();
+			std::vector<std::string> get_labels();
 	};	
 
 
@@ -105,6 +110,8 @@ class molecule {
 		static std::string find_line(std::ifstream& stream, int num_words, const std::string& target_sentence);
 		static std::vector<Eigen::MatrixXd> inverted_design_matrices(const Eigen::MatrixXd& grid_points, int dim, int poly_order);
 		static Eigen::MatrixXd fitting_coefficients(int level, const Eigen::MatrixXd& V, const std::vector<Eigen::MatrixXd>& inverted_design_mat); 
+		Eigen::MatrixXd get_V(const Eigen::MatrixXd& grdi_points, int order, int col, const std::vector<int>& modes);
+		int correct_energy_col(int cur_order, int sub_order);
 	public:
 		void print_coordinates(int type);
 		void print_cart_coords(int type);

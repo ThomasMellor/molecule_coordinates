@@ -51,7 +51,17 @@
 		return order;
 	};
 	
+	int molecule::coefficient::get_col_num() {
+		return col_num;
+	};
+	
 	molecule::grid_coeffs::grid_coeffs(std::vector<int> num_modes, std::vector<std::string> input_labels, int input_poly_order) : modes(num_modes), labels(input_labels), poly_order(input_poly_order) {};
+
+	std::vector<int> molecule::grid_coeffs::get_modes() {return modes;};
+	int molecule::grid_coeffs::get_poly_order() {return poly_order;};
+	std::vector<std::vector<double>> molecule::grid_coeffs::get_coeffs() {return coeffs;};
+	std::vector<std::string> molecule::grid_coeffs::get_labels() {return labels;};
+
 
 	Eigen::MatrixXd molecule::empty_matrix() {
 		return Eigen::MatrixXd(3*num_atoms, 3*num_atoms); 
@@ -665,6 +675,7 @@ void molecule::set_grid_coeffs(std::string grid_file, int input_poly_order) {
 				iss_5 >> mode;
 				num_modes.push_back(mode);
 			};
+			sort_vec(num_modes);
 			getline(stream, line);
 			std::istringstream iss_6(line);
 			for(int k = 0; k < 8; k++) {
@@ -748,6 +759,10 @@ void molecule::set_grid_coeffs(std::string grid_file, int input_poly_order) {
 			std::vector<Eigen::MatrixXd> inverted_design_mat = 
 				molecule::inverted_design_matrices(grid_points, i, input_poly_order);
 		};
+		for(int m = 1; m <= i; m++) {
+			int num = correct_energy_col(i,m);
+			std::cout << "order = " << i << " sub order = " <<  m << " col = "  << num << std::endl;
+		};
 	};
 };
 
@@ -774,6 +789,35 @@ Eigen::MatrixXd  molecule::fitting_coefficients(int level, const Eigen::MatrixXd
 		};
 	};
 	Eigen::MatrixXd coeffs = V1*outer_product( (inverted_design_mat[level]).transpose(), (inverted_design_mat[level+1]).transpose());
+};
+
+Eigen::MatrixXd molecule::get_V(const Eigen::MatrixXd& grid_points, int order, int col, const std::vector<int>& num_modes) {
+	Eigen::MatrixXd V = grid_points.col(col);
+	for(int i = 0; i < order - 1; i++) {
+		int correct_col = correct_energy_col(order, i + 1);
+		for(grid_coeffs coeff : grid_coeffs_vector[i]) {
+			if(!contains_all_nums(num_modes, coeff.get_modes())) {
+				continue;
+			};
+		}; 
+		
+	};
+};
+
+int molecule::correct_energy_col(int cur_order, int sub_order) {
+	std::vector<int> dim_tally;
+	dim_tally.push_back(1);
+	for(int i = sub_order - 1; i < cur_order - 1; i++) {
+		int mat_val = multi_level_mat(sub_order - 1, i);
+		std::cout << "mat_val  "  << mat_val << " (i,j) = " << sub_order -1  << " "  << i << std::endl;
+		std::cout << " back " << dim_tally.back() << std::endl;
+		if( mat_val >= 0 ) {
+			dim_tally.push_back(dim_tally.back() + mat_val);
+		} else {
+			dim_tally.push_back(dim_tally[-mat_val-sub_order] + 1);
+		};
+	};
+	return dim_tally.back();
 };
 	
 void molecule::print_coordinates(int type) {
