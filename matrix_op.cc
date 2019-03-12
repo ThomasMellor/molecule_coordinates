@@ -30,3 +30,14 @@ bool contains_all_nums(const std::vector<int>& vec, const  std::vector<int>& sub
 	};
 	return true; 
 };
+
+Eigen::MatrixXd poly_factor_mat( const Eigen::MatrixXd& coordinates, int poly_order, int dim) {
+	Eigen::MatrixXd poly_mat = Eigen::MatrixXd::Constant(coordinates.rows(), poly_order + 1, 1);
+	for(int i = 1; i < poly_mat.cols(); i++) {
+		for(int j = 0; j < poly_mat.rows(); j++) {
+			poly_mat(i,j) = poly_mat(i-1,j)*coordinates(j);
+		};
+	};
+	return poly_mat;
+};
+

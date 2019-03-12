@@ -8,7 +8,7 @@
 
 Eigen::MatrixXd outer_product(const Eigen::MatrixXd& mat_a, const Eigen::MatrixXd& mat_b);
 std::vector<int> sort_vec(std::vector<int>& vec); 
-
+Eigen::MatrixXd poly_factor_mat(const Eigen::MatrixXd& coordinates, int poly_order);
 
 
 bool contains_num(const std::vector<int>& vec, int x);
