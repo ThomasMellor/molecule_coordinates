@@ -629,7 +629,6 @@ void molecule::set_grid_coeffs(std::string grid_file, int input_poly_order) {
 	iss_1 >> expansion_order;
 	
 	multi_level_mat = Eigen::MatrixXi::Zero(expansion_order, expansion_order);	
-	grid_coeffs_vector.resize(expansion_order);
 	
 	rest_of_sentence = find_line(stream, 3, "### MULTI LEVEL ");
 	for(int i = 0; i < expansion_order; i++) {
@@ -692,6 +691,7 @@ void molecule::set_grid_coeffs(std::string grid_file, int input_poly_order) {
 				std::string num_points_str = word.substr(0, word.length()-1);
 				num_ab_points = std::stoi(word);
 			};
+			std::cout << " num ab points " << num_ab_points << std::endl;
 			rest_of_sentence = find_line(stream, 1, "Grid "); 	
 			
 			std::istringstream iss_7(rest_of_sentence);
@@ -763,17 +763,12 @@ void molecule::set_grid_coeffs(std::string grid_file, int input_poly_order) {
 			};
 			std::vector<Eigen::MatrixXd> inverted_design_mat = 
 				molecule::inverted_design_matrices(grid_points, cur_order, input_poly_order);
-		
-			for(int col = 1; col < correct_col - cur_order; col++) {
-				Eigen::MatrixXd pot = get_V(grid_points, expansion_order, col, input_poly_order, modes); 
-				std::cout << pot << std::endl;
+	
+			for(int col = 1; col <= correct_col - cur_order; col++) {
+				Eigen::MatrixXd pot = get_V(grid_points, cur_order, col, input_poly_order, modes); 
 				Eigen::MatrixXd fit = fitting_coefficients(0, pot, inverted_design_mat);
 				molecule::grid_coeffs coeffs_object(modes, energy_labels, fit, input_poly_order, col);
-				grid_coeffs_vector[cur_order - 1].push_back(coeffs_object);
-			};
-			for(int m = 1; m <= cur_order; m++) {
-				int num = correct_energy_col(cur_order, m);
-			std::cout << "order = " << cur_order << " sub order = " <<  m << " col = "  << num << std::endl;
+				grid_coeffs_vector.push_back(coeffs_object);
 			};
 		};
 	};
@@ -782,17 +777,25 @@ void molecule::set_grid_coeffs(std::string grid_file, int input_poly_order) {
 Eigen::MatrixXd  molecule::fitting_coefficients(int level, const Eigen::MatrixXd& V, const std::vector<Eigen::MatrixXd>& inverted_design_mat) {
 	
 	int dim = inverted_design_mat.size();
-	int num_grid = inverted_design_mat[0].rows(); int num_basis = inverted_design_mat[0].cols();
+	int num_grid = inverted_design_mat[0].cols(); int num_basis = inverted_design_mat[0].rows();
 	std::cout << "num_grid " << num_grid << " dim " << dim << " V.rows() " <<V.rows() << std::endl;
 	if(V.rows() != pow(num_grid, dim)) {
 		std::cerr << "Not enough potenial energies" << std::endl;
 		exit(1);
 	};
-
-	Eigen::MatrixXd reshaped_V = V;	
+	Eigen::MatrixXd coeffs;
+	if(dim == 1) {
+		coeffs = inverted_design_mat[0]*V;
+		return coeffs;
+	} else if(dim == 2) {
+		coeffs = outer_product(inverted_design_mat[0], inverted_design_mat[1])*V;
+		return coeffs;
+	};
+	
+	Eigen::MatrixXd reshaped_V = V;
 	reshaped_V.resize(pow(num_grid, dim-level-2), pow(num_grid, 2));
 	Eigen::MatrixXd V1 = Eigen::MatrixXd::Zero(pow(num_basis, dim-level-2),pow(num_grid, 2));
-	if((dim-level)==3) {
+	if ((dim - level)==3) {
 		V1 = inverted_design_mat[dim-1]*reshaped_V;
 	} else if((dim-level)==4) {
 		V1 = outer_product(inverted_design_mat[dim-2], inverted_design_mat[dim-1])*reshaped_V;
@@ -802,54 +805,72 @@ Eigen::MatrixXd  molecule::fitting_coefficients(int level, const Eigen::MatrixXd
 			V1.col(i) = V1_tmp;
 		};
 	};
-	Eigen::MatrixXd coeffs = V1*outer_product( (inverted_design_mat[level]).transpose(), (inverted_design_mat[level+1]).transpose());
+	coeffs = V1*outer_product( (inverted_design_mat[level]).transpose(), (inverted_design_mat[level+1]).transpose());
+	return coeffs;
 };
 
 Eigen::MatrixXd molecule::get_V(const Eigen::MatrixXd& grid_points, int order, int column, int poly_order, const std::vector<int>& modes) {
 	std::cout << "column " << column << " order " << order << std::endl;
-	Eigen::MatrixXd V = grid_points.col(column - 1 + order - 1);
-	std::cout << V << std::endl;
+	int total_order = modes.size();
+	Eigen::MatrixXd V = grid_points.col(column + total_order - 1);
 	for(int i = 0; i < order - 1; i++) {
 		int correct_col = correct_energy_col(order, i + 1)  + column - 1;
-		std::cout << "correct_col, i, order, column " << correct_col << " " << i << " " << order << " " << column << std::endl;
-		for(grid_coeffs coeff : grid_coeffs_vector[i]) {
-			if( (!contains_all_nums(modes, coeff.get_modes())) or (correct_col != coeff.get_column() ) ) {
+		std::cout << "correct_col, i, order, column " << correct_col << " " << i << " " << order << " " << column << " " << grid_coeffs_vector.size() << std::endl;
+		for(grid_coeffs coeff : grid_coeffs_vector) {
+			std::cout << "coeff size " << coeff.get_modes().size() << std::endl;
+			std::cout << "contains_all_nums" << contains_all_nums(modes, coeff.get_modes()) << std::endl;
+			std::cout << correct_col << " " <<  coeff.get_column() << std::endl; 
+			if( (!contains_all_nums(modes, coeff.get_modes())) 
+				or (correct_col != coeff.get_column() )
+				or (coeff.get_modes().size() != (i+1))) {
 				continue;
+			};
+			std::cout << " MODE " << coeff.get_modes().size() << " " << i << " " << order << std::endl;
+			for(int mode : coeff.get_modes()) {
+				std::cout <<  " " << mode << " ";
 			};	
+			std::cout << std::endl;
+
 			for(int j = 0; j < V.rows() ; j++) {
 				Eigen::MatrixXd coordinates = Eigen::MatrixXd::Zero(3*num_atoms-6 , 1);
+				std::vector<int> ordered_modes;
 				for(int mode : coeff.get_modes()) {
 					for(int k = 0; k < modes.size(); k++) {	
-						if(modes[j] == mode) {
-							coordinates(mode-1) = grid_points(i, j);
+						if(modes[k] == mode) {
+							coordinates(mode-1) = grid_points(j, k);
+							ordered_modes.push_back(mode-1);
 						};
 					};
 				};
-				std::cout << coordinates << std::endl;
 				Eigen::MatrixXd poly_mat = poly_factor_mat(coordinates, poly_order);
-				Eigen::MatrixXd factor_mat = poly_mat.row(0);
-				for(int k = 0; k < poly_mat.rows() - 1; k++) {
-					Eigen::MatrixXd temp_mat = outer_product(factor_mat, poly_mat.row(k + 1));
+				Eigen::MatrixXd factor_mat = poly_mat.row(ordered_modes[0]);
+				for(int k = 0; k < ordered_modes.size() - 1; k++) {
+					Eigen::MatrixXd temp_mat = outer_product(factor_mat, poly_mat.row(ordered_modes[k + 1]));
 					factor_mat = temp_mat;
 				};
-				for(int k = 0; k < factor_mat.size(); k++) {
+				if(ordered_modes.size() == 2 and ordered_modes[0] == 0) {
+					//std::cout << "coeffs " << coeff.get_coeffs();
+				};
+				for(int k = 0; k < factor_mat.cols(); k++) {
 					factor_mat(k) *= coeff.get_coeffs()(k);
+					if(ordered_modes.size() == 2 and ordered_modes[0] == 0) { 
+						//std::cout << V(j) << std::endl;
+						//std::cout << factor_mat(k) << std::endl;
+					};
 					V(j) -= factor_mat(k);
 				};
 			};	 
 		}; 
 			
 	};
-	
+	return V;	
 };
 
 int molecule::correct_energy_col(int cur_order, int sub_order) {
 	std::vector<int> dim_tally;
 	dim_tally.push_back(1);
-	for(int i = sub_order - 1; i < cur_order - 1; i++) {
+	for(int i = sub_order; i < cur_order; i++) {
 		int mat_val = multi_level_mat(sub_order - 1, i);
-		std::cout << "mat_val  "  << mat_val << " (i,j) = " << sub_order -1  << " "  << i << std::endl;
-		std::cout << " back " << dim_tally.back() << std::endl;
 		if( mat_val >= 0 ) {
 			dim_tally.push_back(dim_tally.back() + mat_val);
 		} else {
@@ -917,15 +938,15 @@ void molecule::set_molecule_coord(int type, std::string coord_file) {
 		double x, y, z;
 		if(!(iss >> x)) {
 			file_error_message(coord_file);
-			exit(0);		
+			exit(1);		
 		} 
 		if(!(iss >> y)) {
 			file_error_message(coord_file);
-			exit(0);
+			exit(1);
 		};	
 		if(!(iss >> z)) {
 			file_error_message(coord_file);
-			exit(0);
+			exit(1);
 		};	
 		this -> set_atom_coord(type, atom_counter, x, y, z);
 	};
@@ -1464,13 +1485,16 @@ std::string molecule::find_line(std::ifstream& stream, int num_words, const std:
 
 std::vector<Eigen::MatrixXd> molecule::inverted_design_matrices(const Eigen::MatrixXd& grid_points, int dim, int poly_order) {
 	std::vector<Eigen::MatrixXd> matrices;
+	int num_1d_points = round(pow(grid_points.rows(), 1.0/dim));
+	std::cout << "root " << num_1d_points << std::endl;
 	for(int i = 0; i < dim; i++) {
-		Eigen::MatrixXd design_mat = Eigen::MatrixXd::Zero(grid_points.rows(), poly_order + 1);
+		Eigen::MatrixXd design_mat = Eigen::MatrixXd::Zero(num_1d_points, poly_order + 1);
 		for(int j = 0; j <= poly_order; j++) {
-			for(int k = 0; k < grid_points.rows(); k++) {
-				design_mat(k, j) = pow(grid_points(k, i), j); 
+			for(int k = 0; k < num_1d_points; k++) {
+				design_mat(k, j) = pow(grid_points(pow(num_1d_points,i)*k, i), j); 
 			};
 		};
+		std::cout << "design mat " << i << " " << design_mat << std::endl;
 		Eigen::MatrixXd inverse_mat = design_mat.completeOrthogonalDecomposition().pseudoInverse();
 		matrices.push_back(inverse_mat);
 	};
@@ -1480,9 +1504,16 @@ std::vector<Eigen::MatrixXd> molecule::inverted_design_matrices(const Eigen::Mat
 
 Eigen::MatrixXd poly_factor_mat( const Eigen::MatrixXd& coordinates, int poly_order) {
 	Eigen::MatrixXd poly_mat = Eigen::MatrixXd::Constant(coordinates.rows(), poly_order + 1, 1);
-	for(int i = 1; i < poly_mat.cols(); i++) {
-		for(int j = 0; j < poly_mat.rows(); j++) {
-			poly_mat(i,j) = poly_mat(i-1,j)*coordinates(j);
+	if(poly_order > 0) {
+		for(int i = 0; i < poly_mat.rows(); i++) {	
+			poly_mat(i, 1) = coordinates(i);
+		};
+	};
+	if(poly_order > 1) {
+		for(int i = 2; i < poly_mat.cols(); i++) {
+			for(int j = 0; j < poly_mat.rows(); j++) {
+				poly_mat(j,i) = poly_mat(j,i-1)*coordinates(j);
+			};
 		};
 	};
 	return poly_mat;

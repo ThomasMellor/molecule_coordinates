@@ -59,7 +59,7 @@ class molecule {
 		Eigen::MatrixXd M_mat;
 		molecule::coefficient coeffs_1D;
 		molecule::coefficient coeffs_2D;
-		std::vector<std::vector<molecule::grid_coeffs>> grid_coeffs_vector;
+		std::vector<molecule::grid_coeffs> grid_coeffs_vector;
 		Eigen::MatrixXi multi_level_mat; 
 		std::vector<std::string> dimension_labels;
 		int expansion_order;
