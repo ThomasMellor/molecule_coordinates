@@ -14,5 +14,6 @@ Eigen::MatrixXd poly_factor_mat(const Eigen::MatrixXd& coordinates, int poly_ord
 bool contains_num(const std::vector<int>& vec, int x);
 bool contains_all_nums(const std::vector<int>& vec, const std::vector<int>& sub_vec); 
 
+int number_convert(int input, int order, int num_grid);
 #endif 
 

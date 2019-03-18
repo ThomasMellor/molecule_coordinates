@@ -41,3 +41,21 @@ Eigen::MatrixXd poly_factor_mat( const Eigen::MatrixXd& coordinates, int poly_or
 	return poly_mat;
 };
 
+int number_convert(int input, int order, int num_grid) {
+	std::vector<int> values;
+	int temp;
+	int remainder;
+	for(int i = 0; i < order; i++) {
+		temp = input / num_grid;
+		remainder = input%num_grid;
+		values.push_back(remainder);
+		input = temp;	
+	};
+	std::reverse(values.begin(), values.end());
+	int converted_num = 0;
+	for(int i = 0; i < values.size(); i++) {
+		converted_num += values[i]*pow(num_grid, i);
+	};
+	return converted_num;
+};	
+
