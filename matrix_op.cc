@@ -14,6 +14,7 @@ Eigen::MatrixXd outer_product(const Eigen::MatrixXd& mat_a, const Eigen::MatrixX
 	return mat_ab;
 };
 
+
 std::vector<int> sort_vec(std::vector<int>& vec) {
 	sort(vec.begin(), vec.end());	
 	return vec;

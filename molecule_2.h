@@ -95,6 +95,9 @@ class molecule {
 		Eigen::MatrixXd Amat();
 		static Eigen::MatrixXd Tmat(const Eigen::MatrixXd& A);
 		static Eigen::MatrixXd ATAmat(const Eigen::MatrixXd& A);
+		Eigen::MatrixXd epsilon_mat();
+		Eigen::VectorXd q_vect(const Eigen::MatrixXd& ep_mat);
+		Eigen::MatrixXd U_mat(const Eigen::VectorXd & q_vec);
 		void rotate_coords(const Eigen::MatrixXd& T);
 		Eigen::Vector3d Eckart_cond();
 
@@ -104,7 +107,7 @@ class molecule {
 		Eigen::VectorXd& derivative_vector(Eigen::VectorXd& vec, std::vector<std::vector<double>> try_coord);
 		Eigen::VectorXd empty_vector();
 		static void Z_coord_error(); 		
-		Eigen::VectorXd normal_coordinates(); 
+		Eigen::MatrixXd normal_coordinates(); 
 
 
 		double coord_difference(std::vector<std::vector<double>> try_coord);
