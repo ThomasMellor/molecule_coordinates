@@ -134,6 +134,7 @@ class molecule {
 		void update_atom_coord(int type, int atom_num, double dx, double dy, double dz);
 		void set_molecule_coord(int type, std::string coord_file);
 		void set_molecule_coord_Z(int type, std::string coord_file);
+		void set_molecule_coord_norm(std::string coord_file);
 		void update_molecule_coord(const Eigen::VectorXd& vec);
 		void print_coefficients_1D(); 
 		double energy(); 
